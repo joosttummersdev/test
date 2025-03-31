@@ -25,6 +25,7 @@ export default defineConfig({
       domains: ['jvurixmxrkgyzeqxwcvs.supabase.co'],
       formats: ['image/avif', 'image/webp'],
     },
+    maxDuration: 60
   }),
   integrations: [
     react({

@@ -13,12 +13,6 @@ const publicApiBase = process.env.PUBLIC_API_BASE ?? 'https://scraper-73dv.onren
 export default defineConfig({
   output: 'server',
   adapter: vercel({
-    webAnalytics: {
-      enabled: true,
-    },
-    speedInsights: {
-      enabled: true,
-    },
     imageService: true,
     devImageService: 'sharp',
     imagesConfig: {

@@ -1,3 +1,5 @@
+import nodeFetch from 'node-fetch';
+
 interface TestCredentials {
   username: string;
   password: string;
@@ -17,7 +19,8 @@ function createTimeoutPromise(ms: number) {
 }
 
 export async function testScraperCredentials(credentials: TestCredentials) {
-  const timeout = createTimeoutPromise(30000);
+  const timeout = createTimeoutPromise(60000); // Increased to 60 seconds
+  const fetch = globalThis.fetch || nodeFetch;
 
   try {
     const apiBase = 'https://scraper-73dv.onrender.com';
@@ -27,7 +30,8 @@ export async function testScraperCredentials(credentials: TestCredentials) {
       fetch(`${apiBase}/api/scraper/test`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify(credentials)
       }),
@@ -37,6 +41,10 @@ export async function testScraperCredentials(credentials: TestCredentials) {
     // Clear timeout since request completed
     timeout.clear();
 
+    if (!response) {
+      throw new Error('No response received from server');
+    }
+
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.error || "Fout bij verbinden met scraper");
@@ -44,6 +52,9 @@ export async function testScraperCredentials(credentials: TestCredentials) {
     return data;
   } catch (error: any) {
     console.error('Error testing scraper credentials:', error);
+    if (error.name === 'AbortError' || error.message.includes('timeout')) {
+      throw new Error('De verbinding met de scraper is verlopen. Probeer het opnieuw.');
+    }
     throw new Error(error.message || 'Onverwachte fout bij testen van inloggegevens');
   }
 }

@@ -1,4 +1,1 @@
-export const env = {
-  VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-  VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY
-} as const;
+export const PUBLIC_API_BASE = import.meta.env.PUBLIC_API_BASE;

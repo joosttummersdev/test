@@ -1,5 +1,5 @@
 // API base URL from environment variables
-const apiBase = import.meta.env.PUBLIC_API_BASE || "https://scraper-ekwu.onrender.com";
+const apiBase = import.meta.env.PUBLIC_API_BASE || "https://scraper-73dv.onrender.com";
 
 interface TestCredentials {
   username: string;

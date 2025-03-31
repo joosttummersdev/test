@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import chromium from '@sparticuz/chromium';
 
-// Add stealth plugin to avoid detection
 puppeteer.use(StealthPlugin());
 
 const corsHeaders = {
@@ -30,15 +30,11 @@ export const post: APIRoute = async ({ request }) => {
 
     // Launch browser with proper configuration
     browser = await puppeteer.launch({
-      headless: true,
-      timeout: 120000,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--window-size=1920,1080'
-      ]
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true
     });
 
     try {

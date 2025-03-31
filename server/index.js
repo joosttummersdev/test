@@ -10,7 +10,7 @@ import fs from 'fs';
 puppeteer.use(StealthPlugin());
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 // Enable CORS
 app.use(cors());

@@ -56,7 +56,7 @@ export const handler = async (event) => {
     browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: 'new',
       ignoreHTTPSErrors: true
     });
 
@@ -80,11 +80,17 @@ export const handler = async (event) => {
       }
     });
 
+    // Add delay before navigation
+    await new Promise(r => setTimeout(r, 1000));
+
     // Navigate to login page
     await page.goto('https://app.salesdock.nl/login', {
       waitUntil: ['networkidle0', 'domcontentloaded'],
       timeout: 60000
     });
+
+    // Add delay after navigation
+    await new Promise(r => setTimeout(r, 1000));
 
     // Wait for login form
     await page.waitForSelector('input[name="email"]', { timeout: 10000 });
@@ -97,6 +103,9 @@ export const handler = async (event) => {
     // Fill login form
     await page.type('input[name="email"]', username);
     await page.type('input[name="password"]', password);
+
+    // Add delay before clicking
+    await new Promise(r => setTimeout(r, 1000));
 
     // Find and click login button
     const submitButton = await page.waitForSelector('button[type="submit"]', {
@@ -115,6 +124,9 @@ export const handler = async (event) => {
       }),
       submitButton.click()
     ]);
+
+    // Add delay after navigation
+    await new Promise(r => setTimeout(r, 1000));
 
     // Check for successful login
     const isLoggedIn = await Promise.race([
@@ -142,11 +154,14 @@ export const handler = async (event) => {
       });
 
       if (errorText) {
+        console.log('Found error message:', errorText);
         throw new Error(`Login failed: ${errorText.trim()}`);
       }
 
       throw new Error('Login failed: Could not verify successful login');
     }
+
+    console.log('Login successful');
 
     return {
       statusCode: 200,

@@ -29,7 +29,7 @@ serve(async (req) => {
     browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: 'new',
       ignoreHTTPSErrors: true
     });
 
@@ -55,11 +55,17 @@ serve(async (req) => {
         }
       });
 
+      // Add delay before navigation
+      await new Promise(r => setTimeout(r, 1000));
+
       // Navigate to login page
       await page.goto('https://app.salesdock.nl/login', {
         waitUntil: ['networkidle0', 'domcontentloaded'],
         timeout: 60000
       });
+
+      // Add delay after navigation
+      await new Promise(r => setTimeout(r, 1000));
 
       // Wait for login form
       await page.waitForSelector('input[name="email"]', { timeout: 10000 });
@@ -72,6 +78,9 @@ serve(async (req) => {
       // Fill login form
       await page.type('input[name="email"]', username);
       await page.type('input[name="password"]', password);
+
+      // Add delay before clicking
+      await new Promise(r => setTimeout(r, 1000));
 
       // Find and click login button
       const submitButton = await page.waitForSelector('button[type="submit"]', {
@@ -90,6 +99,9 @@ serve(async (req) => {
         }),
         submitButton.click()
       ]);
+
+      // Add delay after navigation
+      await new Promise(r => setTimeout(r, 1000));
 
       // Check for successful login
       const isLoggedIn = await Promise.race([
@@ -141,7 +153,7 @@ serve(async (req) => {
     } finally {
       await browser.close();
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('SCRAPER ERROR:', error);
     return new Response(
       JSON.stringify({ 

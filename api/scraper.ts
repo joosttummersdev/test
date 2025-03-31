@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: 'new',
       ignoreHTTPSErrors: true
     });
 
@@ -44,11 +44,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
 
+    // Add delay before navigation
+    await new Promise(r => setTimeout(r, 1000));
+
     // Navigate to login page
     await page.goto('https://app.salesdock.nl/login', {
       waitUntil: ['networkidle0', 'domcontentloaded'],
       timeout: 60000
     });
+
+    // Add delay after navigation
+    await new Promise(r => setTimeout(r, 1000));
 
     // Wait for login form
     await page.waitForSelector('input[name="email"]', { timeout: 10000 });
@@ -61,6 +67,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Fill login form
     await page.type('input[name="email"]', username);
     await page.type('input[name="password"]', password);
+
+    // Add delay before clicking
+    await new Promise(r => setTimeout(r, 1000));
 
     // Find and click login button
     const submitButton = await page.waitForSelector('button[type="submit"]', {
@@ -79,6 +88,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }),
       submitButton.click()
     ]);
+
+    // Add delay after navigation
+    await new Promise(r => setTimeout(r, 1000));
 
     // Check for successful login
     const isLoggedIn = await Promise.race([

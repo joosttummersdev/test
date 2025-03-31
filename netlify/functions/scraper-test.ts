@@ -56,7 +56,7 @@ export const handler = async (event) => {
     browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: 'new', // ✅ Use new headless mode
+      headless: 'new',
       ignoreHTTPSErrors: true
     });
 
@@ -85,7 +85,7 @@ export const handler = async (event) => {
 
     // Navigate to login page
     await page.goto('https://app.salesdock.nl/login', {
-      waitUntil: ['networkidle0', 'domcontentloaded'],
+      waitUntil: 'domcontentloaded', // ✅ Use domcontentloaded instead of networkidle0
       timeout: 60000
     });
 
@@ -93,8 +93,8 @@ export const handler = async (event) => {
     await new Promise(r => setTimeout(r, 1000));
 
     // Wait for login form
-    await page.waitForSelector('input[name="email"]', { timeout: 10000 });
-    await page.waitForSelector('input[name="password"]', { timeout: 10000 });
+    await page.waitForSelector('input[name="email"]', { timeout: 30000 }); // ✅ Increased timeout
+    await page.waitForSelector('input[name="password"]', { timeout: 30000 }); // ✅ Increased timeout
 
     // Clear fields first
     await page.$eval('input[name="email"]', (el: any) => el.value = '');
@@ -109,7 +109,7 @@ export const handler = async (event) => {
 
     // Find and click login button
     const submitButton = await page.waitForSelector('button[type="submit"]', {
-      timeout: 10000
+      timeout: 30000 // ✅ Increased timeout
     });
 
     if (!submitButton) {
@@ -119,8 +119,8 @@ export const handler = async (event) => {
     // Click and wait for navigation
     await Promise.all([
       page.waitForNavigation({ 
-        waitUntil: ['networkidle0', 'domcontentloaded'],
-        timeout: 30000 
+        waitUntil: 'domcontentloaded', // ✅ Use domcontentloaded instead of networkidle0
+        timeout: 60000 
       }),
       submitButton.click()
     ]);
@@ -131,7 +131,7 @@ export const handler = async (event) => {
     // Check for successful login
     const isLoggedIn = await Promise.race([
       page.waitForSelector('.dashboard-container', { 
-        timeout: 10000,
+        timeout: 30000, // ✅ Increased timeout
         visible: true 
       }).then(() => {
         console.log('Found dashboard container');
@@ -139,7 +139,7 @@ export const handler = async (event) => {
       }).catch(() => false),
       
       page.waitForSelector('nav.main-menu', {
-        timeout: 10000,
+        timeout: 30000, // ✅ Increased timeout
         visible: true
       }).then(() => {
         console.log('Found navigation menu');

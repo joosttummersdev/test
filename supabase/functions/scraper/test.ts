@@ -29,7 +29,7 @@ serve(async (req) => {
     browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: 'new', // ✅ Use new headless mode
+      headless: 'new',
       ignoreHTTPSErrors: true
     });
 
@@ -60,7 +60,7 @@ serve(async (req) => {
 
       // Navigate to login page
       await page.goto('https://app.salesdock.nl/login', {
-        waitUntil: ['networkidle0', 'domcontentloaded'],
+        waitUntil: 'domcontentloaded', // ✅ Use domcontentloaded instead of networkidle0
         timeout: 60000
       });
 
@@ -68,8 +68,8 @@ serve(async (req) => {
       await new Promise(r => setTimeout(r, 1000));
 
       // Wait for login form
-      await page.waitForSelector('input[name="email"]', { timeout: 10000 });
-      await page.waitForSelector('input[name="password"]', { timeout: 10000 });
+      await page.waitForSelector('input[name="email"]', { timeout: 30000 }); // ✅ Increased timeout
+      await page.waitForSelector('input[name="password"]', { timeout: 30000 }); // ✅ Increased timeout
 
       // Clear fields first
       await page.$eval('input[name="email"]', (el: any) => el.value = '');
@@ -84,7 +84,7 @@ serve(async (req) => {
 
       // Find and click login button
       const submitButton = await page.waitForSelector('button[type="submit"]', {
-        timeout: 10000
+        timeout: 30000 // ✅ Increased timeout
       });
 
       if (!submitButton) {
@@ -94,8 +94,8 @@ serve(async (req) => {
       // Click and wait for navigation
       await Promise.all([
         page.waitForNavigation({ 
-          waitUntil: ['networkidle0', 'domcontentloaded'],
-          timeout: 30000 
+          waitUntil: 'domcontentloaded', // ✅ Use domcontentloaded instead of networkidle0
+          timeout: 60000 
         }),
         submitButton.click()
       ]);
@@ -106,7 +106,7 @@ serve(async (req) => {
       // Check for successful login
       const isLoggedIn = await Promise.race([
         page.waitForSelector('.dashboard-container', { 
-          timeout: 10000,
+          timeout: 30000, // ✅ Increased timeout
           visible: true 
         }).then(() => {
           console.log('Found dashboard container');
@@ -114,7 +114,7 @@ serve(async (req) => {
         }).catch(() => false),
         
         page.waitForSelector('nav.main-menu', {
-          timeout: 10000,
+          timeout: 30000, // ✅ Increased timeout
           visible: true
         }).then(() => {
           console.log('Found navigation menu');

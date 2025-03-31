@@ -1,4 +1,5 @@
-import.meta.env.PUBLIC_API_BASE || "https://scraper-ekwu.onrender.com";
+// API base URL
+const apiBase = "https://scraper-ekwu.onrender.com";
 
 interface TestCredentials {
   username: string;

@@ -33,6 +33,15 @@ app.get("/", (req, res) => {
   res.send("✅ Scraper backend is live!");
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Scraper backend is alive',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Test login endpoint
 app.post('/api/scraper/test', async (req, res) => {
   const { username, password } = req.body;

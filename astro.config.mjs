@@ -8,6 +8,7 @@ import path from 'path';
 const supabaseUrl = process.env.VITE_SUPABASE_URL ?? 'https://jvurixmxrkgyzeqxwcvs.supabase.co';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2dXJpeG14cmtneXplcXh3Y3ZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNTY5MzIsImV4cCI6MjA1ODgzMjkzMn0.bIxHpWYRvddWIqtby7N5dEJ6GXx1YOh0s86_tCRzc70';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2dXJpeG14cmtneXplcXh3Y3ZzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI1NjkzMiwiZXhwIjoyMDU4ODMyOTMyfQ.TfrBTmZOhnq-0CufkJX9Xu2hRWI2mYUhXJ3vkfXvA9E';
+const publicApiBase = process.env.PUBLIC_API_BASE ?? 'https://scraper-ekwu.onrender.com';
 
 export default defineConfig({
   output: 'server',
@@ -48,7 +49,8 @@ export default defineConfig({
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
-      'import.meta.env.SUPABASE_SERVICE_ROLE_KEY': JSON.stringify(supabaseServiceRoleKey)
+      'import.meta.env.SUPABASE_SERVICE_ROLE_KEY': JSON.stringify(supabaseServiceRoleKey),
+      'import.meta.env.PUBLIC_API_BASE': JSON.stringify(publicApiBase)
     },
     build: {
       sourcemap: true

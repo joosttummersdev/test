@@ -1,5 +1,4 @@
-// Get API base URL 
-const apiBase = "https://scraper-ekwu.onrender.com";
+import.meta.env.PUBLIC_API_BASE || "https://scraper-ekwu.onrender.com";
 
 interface TestCredentials {
   username: string;
@@ -10,18 +9,17 @@ export async function testScraperCredentials(credentials: TestCredentials) {
   try {
     const response = await fetch(`${apiBase}/api/scraper/test`, {
       method: "POST",
-      body: JSON.stringify(credentials),
       headers: {
         "Content-Type": "application/json"
-      }
+      },
+      body: JSON.stringify(credentials)
     });
 
+    const data = await response.json();
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to test credentials');
+      throw new Error(data.error || "Fout bij verbinden met scraper");
     }
-
-    return await response.json();
+    return data;
   } catch (error: any) {
     console.error('Error testing scraper credentials:', error);
     throw error;

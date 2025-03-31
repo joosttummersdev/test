@@ -12,8 +12,11 @@ puppeteer.use(StealthPlugin());
 const app = express();
 const port = 3001;
 
-// Enable CORS
-app.use(cors());
+// Enable CORS with specific origin
+app.use(cors({
+  origin: "https://test-sooty-five-51.vercel.app"
+}));
+
 app.use(express.json());
 
 // Get current directory
@@ -25,7 +28,7 @@ if (fs.existsSync(clientPath)) {
   app.use(express.static(clientPath));
 }
 
-// Root route (placed before the fallback route)
+// Root route (must be defined before the fallback route)
 app.get("/", (req, res) => {
   res.send("✅ Scraper backend is live!");
 });
@@ -154,8 +157,9 @@ app.post('/api/scraper/test', async (req, res) => {
   }
 });
 
-// Fallback route for unknown paths (placed after all other routes)
+// Fallback route for unknown paths (must be last)
 app.get('*', (req, res, next) => {
+  // Let the root route handle '/' requests
   if (req.path === '/') return next();
 
   const indexPath = path.join(clientPath, 'index.html');

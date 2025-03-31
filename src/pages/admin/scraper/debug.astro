@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { supabase } from '../../../lib/supabaseClient';
+import { testScraperCredentials } from '../../../lib/scraper';
 
 // Get scraper configs
 const { data: configs } = await supabase
@@ -183,6 +184,7 @@ const { data: recentErrors } = await supabase
 
 <script>
   import { supabase } from '../../../lib/supabaseClient';
+  import { testScraperCredentials } from '../../../lib/scraper';
   
   const modal = document.getElementById('configModal');
   const form = document.getElementById('configForm') as HTMLFormElement;
@@ -266,6 +268,13 @@ const { data: recentErrors } = await supabase
       if (!username) throw new Error('Gebruikersnaam is verplicht');
       if (!password) throw new Error('Wachtwoord is verplicht');
 
+      // Test credentials before saving
+      try {
+        await testScraperCredentials({ username, password });
+      } catch (error: any) {
+        throw new Error(`Login test failed: ${error.message}`);
+      }
+
       // Create config data object
       const configData = {
         name,
@@ -277,36 +286,6 @@ const { data: recentErrors } = await supabase
         is_active: isActive,
         settings: {}
       };
-
-      // Test credentials before saving
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-      try {
-        const testResponse = await fetch('http://localhost:3001/api/scraper/test', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            username,
-            password
-          }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!testResponse.ok) {
-          const testResult = await testResponse.json();
-          throw new Error(`Login test failed: ${testResult.error || 'Unknown error'}`);
-        }
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          throw new Error('Login test timed out after 30 seconds');
-        }
-        throw error;
-      }
 
       // Save configuration
       let result;

@@ -1,7 +1,7 @@
-import express from 'express';
-import cors from 'cors';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import express from 'express';
+import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -12,9 +12,9 @@ puppeteer.use(StealthPlugin());
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Enable CORS with specific origin
+// Enable CORS for all origins (testing only)
 app.use(cors({
-  origin: "https://test-sooty-five-51.vercel.app"
+  origin: "*"
 }));
 
 app.use(express.json());

@@ -1,0 +1,15 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[dev]
+  command = "npm run dev"
+  targetPort = 4321
+  port = 8888
+  publish = "dist"
+  framework = "#custom"
+  autoLaunch = true
+
+[functions]
+  node_bundler = "esbuild"

@@ -108,11 +108,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({ success: true });
   } catch (err) {
-    console.error('SCRAPER ERROR:', err);
-    return res.status(err.message?.includes('Login failed') ? 401 : 500).json({ 
-      error: err.message || 'Unexpected error',
-      details: err.stack
-    });
+    if (err instanceof Error) {
+      console.error('SCRAPER ERROR:', err.message);
+      return res.status(err.message.includes('Login failed') ? 401 : 500).json({ 
+        error: err.message,
+        details: err.stack 
+      });
+    } else {
+      console.error('SCRAPER ERROR: Unknown error occurred');
+      return res.status(500).json({ 
+        error: 'Unknown error occurred'
+      });
+    }
   } finally {
     if (browser) await browser.close();
   }

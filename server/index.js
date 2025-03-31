@@ -7,41 +7,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
-// Activate stealth mode
+// Add stealth plugin
 puppeteer.use(StealthPlugin());
 
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Enable CORS for all origins (testing only)
-app.use(cors({
-  origin: "*"
-}));
-
+// Enable CORS
+app.use(cors());
 app.use(express.json());
-
-// Get current directory
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const clientPath = path.join(__dirname, '../dist');
-
-// Serve static files from Astro if the directory exists
-if (fs.existsSync(clientPath)) {
-  app.use(express.static(clientPath));
-}
-
-// Root route (must be defined before the fallback route)
-app.get("/", (req, res) => {
-  res.send("✅ Scraper backend is live!");
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    message: 'Scraper backend is alive',
-    timestamp: new Date().toISOString()
-  });
-});
 
 // Test login endpoint
 app.post('/api/scraper/test', async (req, res) => {
@@ -56,9 +30,8 @@ app.post('/api/scraper/test', async (req, res) => {
     // Launch browser with proper configuration
     browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: 'new',
       ignoreHTTPSErrors: true
     });
 
@@ -82,11 +55,17 @@ app.post('/api/scraper/test', async (req, res) => {
       }
     });
 
+    // Add delay before navigation
+    await new Promise(r => setTimeout(r, 1000));
+
     // Navigate to login page
     await page.goto('https://app.salesdock.nl/login', {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     });
+
+    // Add delay after navigation
+    await new Promise(r => setTimeout(r, 1000));
 
     // Wait for login form
     await page.waitForSelector('input[name="email"]', { timeout: 30000 });
@@ -99,6 +78,9 @@ app.post('/api/scraper/test', async (req, res) => {
     // Fill login form
     await page.type('input[name="email"]', username);
     await page.type('input[name="password"]', password);
+
+    // Add delay before clicking
+    await new Promise(r => setTimeout(r, 1000));
 
     // Find and click login button
     const submitButton = await page.waitForSelector('button[type="submit"]', {
@@ -117,6 +99,9 @@ app.post('/api/scraper/test', async (req, res) => {
       }),
       submitButton.click()
     ]);
+
+    // Add delay after navigation
+    await new Promise(r => setTimeout(r, 1000));
 
     // Check for successful login
     const isLoggedIn = await Promise.race([
@@ -166,17 +151,9 @@ app.post('/api/scraper/test', async (req, res) => {
   }
 });
 
-// Fallback route for unknown paths (must be last)
-app.get('*', (req, res, next) => {
-  // Let the root route handle '/' requests
-  if (req.path === '/') return next();
-
-  const indexPath = path.join(clientPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).send("❌ Not Found");
-  }
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.listen(port, () => {

@@ -1,7 +1,6 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import puppeteer from 'npm:puppeteer-extra@3.3.6';
-import StealthPlugin from 'npm:puppeteer-extra-plugin-stealth@2.11.2';
-import chromium from 'npm:@sparticuz/chromium@121.0.0';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import puppeteer from 'npm:puppeteer-core@21.3.8';
+import chromium from 'npm:@sparticuz/chromium@112.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,10 +14,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let browser;
   try {
-    // Add stealth plugin
-    puppeteer.use(StealthPlugin());
-
     // Get credentials from request
     const { username, password } = await req.json();
 
@@ -29,11 +26,10 @@ serve(async (req) => {
     console.log('Launching browser...');
 
     // Launch browser with proper configuration
-    const browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
-      defaultViewport: chromium.defaultViewport,
       ignoreHTTPSErrors: true
     });
 
@@ -59,32 +55,19 @@ serve(async (req) => {
         }
       });
 
-      // Log navigation events
-      page.on('load', () => console.log(`Page loaded: ${page.url()}`));
-      page.on('error', error => console.log(`Page error: ${error.message}`));
-      page.on('pageerror', error => console.log(`JS error: ${error.message}`));
-      page.on('console', msg => console.log(`Console: ${msg.text()}`));
-
-      // Navigate to login page with retry logic
-      let retries = 3;
-      while (retries > 0) {
-        try {
-          await page.goto('https://app.salesdock.nl/login', {
-            waitUntil: ['networkidle0', 'domcontentloaded'],
-            timeout: 60000
-          });
-          break;
-        } catch (error) {
-          console.log(`Navigation attempt failed (${retries} retries left):`, error);
-          retries--;
-          if (retries === 0) throw error;
-          await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds before retry
-        }
-      }
+      // Navigate to login page
+      await page.goto('https://app.salesdock.nl/login', {
+        waitUntil: ['networkidle0', 'domcontentloaded'],
+        timeout: 60000
+      });
 
       // Wait for login form
-      await page.waitForSelector('input[name="email"]', { timeout: 30000 });
-      await page.waitForSelector('input[name="password"]', { timeout: 30000 });
+      await page.waitForSelector('input[name="email"]', { timeout: 10000 });
+      await page.waitForSelector('input[name="password"]', { timeout: 10000 });
+
+      // Clear fields first
+      await page.$eval('input[name="email"]', (el: any) => el.value = '');
+      await page.$eval('input[name="password"]', (el: any) => el.value = '');
 
       // Fill login form
       await page.type('input[name="email"]', username);
@@ -92,7 +75,7 @@ serve(async (req) => {
 
       // Find and click login button
       const submitButton = await page.waitForSelector('button[type="submit"]', {
-        timeout: 30000
+        timeout: 10000
       });
 
       if (!submitButton) {
@@ -103,7 +86,7 @@ serve(async (req) => {
       await Promise.all([
         page.waitForNavigation({ 
           waitUntil: ['networkidle0', 'domcontentloaded'],
-          timeout: 60000 
+          timeout: 30000 
         }),
         submitButton.click()
       ]);
@@ -111,7 +94,7 @@ serve(async (req) => {
       // Check for successful login
       const isLoggedIn = await Promise.race([
         page.waitForSelector('.dashboard-container', { 
-          timeout: 30000,
+          timeout: 10000,
           visible: true 
         }).then(() => {
           console.log('Found dashboard container');
@@ -119,7 +102,7 @@ serve(async (req) => {
         }).catch(() => false),
         
         page.waitForSelector('nav.main-menu', {
-          timeout: 30000,
+          timeout: 10000,
           visible: true
         }).then(() => {
           console.log('Found navigation menu');
@@ -158,11 +141,11 @@ serve(async (req) => {
     } finally {
       await browser.close();
     }
-  } catch (error: any) {
-    console.error('Test connection error:', error);
+  } catch (error) {
+    console.error('SCRAPER ERROR:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error.message || 'Unexpected error',
         details: error.stack
       }), 
       { 

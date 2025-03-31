@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import puppeteer from 'npm:puppeteer-extra@3.3.6';
-import StealthPlugin from 'npm:puppeteer-extra-plugin-stealth@2.11.2';
-import chromium from 'npm:@sparticuz/chromium@121.0.0';
+import puppeteer from 'npm:puppeteer-core@21.3.8';
+import chromium from 'npm:@sparticuz/chromium@112.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,15 +25,11 @@ serve(async (req) => {
 
     console.log('Launching browser...');
 
-    // Add stealth plugin
-    puppeteer.use(StealthPlugin());
-
     // Launch browser with proper configuration
     browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
-      defaultViewport: chromium.defaultViewport,
       ignoreHTTPSErrors: true
     });
 
@@ -60,36 +55,11 @@ serve(async (req) => {
         }
       });
 
-      // Log navigation events
-      page.on('load', () => console.log(`Page loaded: ${page.url()}`));
-      page.on('error', error => console.log(`Page error: ${error.message}`));
-      page.on('pageerror', error => console.log(`JS error: ${error.message}`));
-      page.on('console', msg => console.log(`Console: ${msg.text()}`));
-
-      // Log network requests
-      page.on('request', request => {
-        console.log(`Request: ${request.method()} ${request.url()}`);
-      });
-
-      page.on('requestfailed', request => {
-        console.log(`Failed request: ${request.url()} (${request.failure()?.errorText})`);
-      });
-
-      page.on('response', response => {
-        const status = response.status();
-        if (status >= 400) {
-          console.log(`Error response: ${response.url()} (${status})`);
-        }
-      });
-
       // Navigate to login page
       await page.goto('https://app.salesdock.nl/login', {
         waitUntil: ['networkidle0', 'domcontentloaded'],
         timeout: 60000
       });
-
-      // Log current URL
-      console.log('Current URL:', await page.url());
 
       // Wait for login form
       await page.waitForSelector('input[name="email"]', { timeout: 10000 });
@@ -120,15 +90,6 @@ serve(async (req) => {
         }),
         submitButton.click()
       ]);
-
-      // Log new URL after navigation
-      console.log('Post-login URL:', await page.url());
-
-      // Take screenshot
-      await page.screenshot({ 
-        path: '/tmp/post-login.png',
-        fullPage: true 
-      });
 
       // Check for successful login
       const isLoggedIn = await Promise.race([

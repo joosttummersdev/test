@@ -1,11 +1,21 @@
 ---
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
-import { supabase } from '../../../../lib/supabaseClient';
+import { supabaseAdmin } from '../../../../lib/supabaseClient';
+
+export async function getStaticPaths() {
+  const { data: runs } = await supabaseAdmin
+    .from('scraper_runs')
+    .select('id');
+
+  return runs?.map(run => ({
+    params: { id: run.id }
+  })) || [];
+}
 
 const { id } = Astro.params;
 
 // Get run details
-const { data: run } = await supabase
+const { data: run } = await supabaseAdmin
   .from('scraper_runs')
   .select(`
     *,
@@ -18,7 +28,7 @@ const { data: run } = await supabase
   .single();
 
 // Get results for this run
-const { data: results } = await supabase
+const { data: results } = await supabaseAdmin
   .from('scraper_results')
   .select('*')
   .eq('run_id', id)

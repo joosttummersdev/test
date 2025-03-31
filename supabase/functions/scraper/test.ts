@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import puppeteer from 'npm:puppeteer-extra@3.3.6';
 import StealthPlugin from 'npm:puppeteer-extra-plugin-stealth@2.11.2';
 import chromium from 'npm:@sparticuz/chromium@121.0.0';
@@ -17,15 +17,17 @@ serve(async (req) => {
 
   let browser;
   try {
-    // Add stealth plugin
-    puppeteer.use(StealthPlugin());
-
     // Get credentials from request
     const { username, password } = await req.json();
 
     if (!username || !password) {
       throw new Error('Username and password are required');
     }
+
+    console.log('Launching browser...');
+
+    // Add stealth plugin
+    puppeteer.use(StealthPlugin());
 
     // Launch browser with proper configuration
     browser = await puppeteer.launch({
@@ -37,6 +39,7 @@ serve(async (req) => {
     });
 
     try {
+      console.log('Browser launched successfully');
       const page = await browser.newPage();
       
       // Set longer timeout for navigation
@@ -178,10 +181,10 @@ serve(async (req) => {
       await browser.close();
     }
   } catch (error) {
-    console.error('Test connection error:', error);
+    console.error('SCRAPER ERROR:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error.message || 'Unexpected error',
         details: error.stack
       }), 
       { 

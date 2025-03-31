@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import puppeteer from 'npm:puppeteer-extra@3.3.6';
 import StealthPlugin from 'npm:puppeteer-extra-plugin-stealth@2.11.2';
+import chromium from 'npm:@sparticuz/chromium@121.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,22 +30,18 @@ serve(async (req) => {
 
     // Launch browser with proper configuration
     const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--window-size=1920,1080'
-      ],
-      timeout: 120000 // 2 minutes timeout
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      defaultViewport: chromium.defaultViewport,
+      ignoreHTTPSErrors: true
     });
 
     try {
       console.log('Browser launched successfully');
       const page = await browser.newPage();
       
-      // Set longer timeouts
+      // Set longer timeout for navigation
       await page.setDefaultNavigationTimeout(60000);
       await page.setDefaultTimeout(60000);
 

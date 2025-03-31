@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import puppeteer from 'npm:puppeteer-extra@3.3.6';
 import StealthPlugin from 'npm:puppeteer-extra-plugin-stealth@2.11.2';
+import chromium from 'npm:@sparticuz/chromium@121.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,18 +29,11 @@ serve(async (req) => {
 
     // Launch browser with proper configuration
     browser = await puppeteer.launch({
-      headless: true,
-      executablePath: puppeteer.executablePath(),
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-        '--disable-accelerated-2d-canvas',
-        '--window-size=1920,1080'
-      ],
-      timeout: 60000
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      defaultViewport: chromium.defaultViewport,
+      ignoreHTTPSErrors: true
     });
 
     try {

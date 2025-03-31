@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
+import vercel from '@astrojs/vercel/serverless';
 import path from 'path';
 
 // Get environment variables with fallbacks
@@ -9,6 +10,8 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1N
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2dXJpeG14cmtneXplcXh3Y3ZzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI1NjkzMiwiZXhwIjoyMDU4ODMyOTMyfQ.TfrBTmZOhnq-0CufkJX9Xu2hRWI2mYUhXJ3vkfXvA9E';
 
 export default defineConfig({
+  output: 'server',
+  adapter: vercel(),
   integrations: [
     react({
       include: ['**/react/*', '**/components/**/*.tsx', '**/pages/**/*.tsx']
@@ -18,15 +21,11 @@ export default defineConfig({
   server: {
     host: true,
     port: 4321,
-    timeout: 120000, // Increase timeout to 2 minutes
+    timeout: 120000,
     headers: {
-      // Allow requests from any origin
       "Access-Control-Allow-Origin": "*",
-      // Allow specific HTTP methods
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      // Allow specific headers including Authorization
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, apikey, X-Client-Info",
-      // Allow credentials
       "Access-Control-Allow-Credentials": "true"
     }
   },

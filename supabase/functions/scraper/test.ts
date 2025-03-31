@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import puppeteer from 'npm:puppeteer-core@21.3.8';
+import puppeteer from 'npm:puppeteer-core@19.11.1';
 import chromium from 'npm:@sparticuz/chromium@112.0.0';
 
 const corsHeaders = {

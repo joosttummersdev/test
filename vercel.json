@@ -4,8 +4,7 @@
   "devCommand": "npm run dev",
   "framework": "astro",
   "functions": {
-    "api/**": {
-      "runtime": "nodejs20.x",
+    "api/scraper.ts": {
       "memory": 3008,
       "maxDuration": 60
     }

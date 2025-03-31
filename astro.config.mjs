@@ -11,7 +11,21 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'eyJhbGc
 
 export default defineConfig({
   output: 'server',
-  adapter: vercel(),
+  adapter: vercel({
+    webAnalytics: {
+      enabled: true,
+    },
+    speedInsights: {
+      enabled: true,
+    },
+    imageService: true,
+    devImageService: 'sharp',
+    imagesConfig: {
+      sizes: [640, 750, 828, 1080, 1200, 1920],
+      domains: ['jvurixmxrkgyzeqxwcvs.supabase.co'],
+      formats: ['image/avif', 'image/webp'],
+    },
+  }),
   integrations: [
     react({
       include: ['**/react/*', '**/components/**/*.tsx', '**/pages/**/*.tsx']

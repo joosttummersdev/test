@@ -4,6 +4,7 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 // Add stealth plugin
 puppeteer.use(StealthPlugin());
@@ -148,13 +149,20 @@ app.post('/api/scraper/test', async (req, res) => {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientPath = path.join(__dirname, '../dist');
 
-// Serve static files from Astro
-app.use(express.static(clientPath));
+// Serve static files from Astro if the directory exists
+if (fs.existsSync(clientPath)) {
+  app.use(express.static(clientPath));
 
-// Fallback to index.html for all unknown routes (SPA support)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(clientPath, 'index.html'));
-});
+  // Only set up the fallback route if we have a frontend
+  app.get('*', (req, res) => {
+    const indexPath = path.join(clientPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).send("❌ Not Found");
+    }
+  });
+}
 
 app.listen(port, () => {
   console.log(`Scraper API server running at http://localhost:${port}`);

@@ -1,11 +1,7 @@
 import express from 'express';
-import cors from 'cors';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import chromium from '@sparticuz/chromium';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 
 // Add stealth plugin
 puppeteer.use(StealthPlugin());
@@ -14,8 +10,16 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Enable CORS
-app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // Test login endpoint
 app.post('/api/scraper/test', async (req, res) => {
@@ -55,17 +59,21 @@ app.post('/api/scraper/test', async (req, res) => {
       }
     });
 
-    // Add delay before navigation
-    await new Promise(r => setTimeout(r, 1000));
-
-    // Navigate to login page
-    await page.goto('https://app.salesdock.nl/login', {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
-    });
-
-    // Add delay after navigation
-    await new Promise(r => setTimeout(r, 1000));
+    // Navigate to login page with retry logic
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        await page.goto('https://app.salesdock.nl/login', {
+          waitUntil: 'domcontentloaded',
+          timeout: 60000
+        });
+        break;
+      } catch (error) {
+        retries--;
+        if (retries === 0) throw error;
+        await page.waitForTimeout(5000); // Wait before retry
+      }
+    }
 
     // Wait for login form
     await page.waitForSelector('input[name="email"]', { timeout: 30000 });
@@ -78,9 +86,6 @@ app.post('/api/scraper/test', async (req, res) => {
     // Fill login form
     await page.type('input[name="email"]', username);
     await page.type('input[name="password"]', password);
-
-    // Add delay before clicking
-    await new Promise(r => setTimeout(r, 1000));
 
     // Find and click login button
     const submitButton = await page.waitForSelector('button[type="submit"]', {
@@ -99,9 +104,6 @@ app.post('/api/scraper/test', async (req, res) => {
       }),
       submitButton.click()
     ]);
-
-    // Add delay after navigation
-    await new Promise(r => setTimeout(r, 1000));
 
     // Check for successful login
     const isLoggedIn = await Promise.race([

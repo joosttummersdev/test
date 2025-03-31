@@ -37,7 +37,7 @@ const { data: recentErrors } = await supabase
         <button
           type="button"
           onclick="showConfigModal()"
-          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-700"
+          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500"
         >
           Nieuwe Configuratie
         </button>
@@ -279,7 +279,7 @@ const { data: recentErrors } = await supabase
       };
 
       // Test credentials before saving
-      const testResponse = await fetch('/.netlify/functions/scraper-test', {
+      const testResponse = await fetch('/api/scraper', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -290,8 +290,8 @@ const { data: recentErrors } = await supabase
         })
       });
 
-      const testResult = await testResponse.json();
       if (!testResponse.ok) {
+        const testResult = await testResponse.json();
         throw new Error(`Login test failed: ${testResult.error || 'Unknown error'}`);
       }
 

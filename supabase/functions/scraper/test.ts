@@ -29,7 +29,7 @@ serve(async (req) => {
     browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: 'new',
+      headless: 'new', // ✅ Use new headless mode
       ignoreHTTPSErrors: true
     });
 
@@ -123,8 +123,7 @@ serve(async (req) => {
       ]);
 
       if (!isLoggedIn) {
-        console.log('Page content after login attempt:', await page.content());
-        
+        console.log('Login verification failed, checking for error message...');
         const errorText = await page.evaluate(() => {
           const errorElement = document.querySelector('.alert-danger, .error-message');
           return errorElement ? errorElement.textContent : null;

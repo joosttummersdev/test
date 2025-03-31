@@ -56,7 +56,7 @@ export const handler = async (event) => {
     browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: 'new',
+      headless: 'new', // ✅ Use new headless mode
       ignoreHTTPSErrors: true
     });
 
@@ -170,7 +170,7 @@ export const handler = async (event) => {
     };
 
   } catch (error) {
-    console.error('SCRAPER ERROR:', error);
+    console.error('Error processing file:', error);
     return {
       statusCode: error.message.includes('Login failed') ? 401 : 500,
       headers: corsHeaders,

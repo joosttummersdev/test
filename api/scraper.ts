@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: 'new',
+      headless: 'new', // ✅ Use new headless mode
       ignoreHTTPSErrors: true
     });
     console.log('Browser launched successfully');

@@ -1,12 +1,13 @@
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import express from 'express';
 import cors from 'cors';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import chromium from '@sparticuz/chromium';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
-// Add stealth plugin
+// Activate stealth mode
 puppeteer.use(StealthPlugin());
 
 const app = express();
@@ -54,14 +55,11 @@ app.post('/api/scraper/test', async (req, res) => {
   try {
     // Launch browser with proper configuration
     browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--window-size=1920,1080'
-      ]
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true
     });
 
     const page = await browser.newPage();
@@ -86,13 +84,13 @@ app.post('/api/scraper/test', async (req, res) => {
 
     // Navigate to login page
     await page.goto('https://app.salesdock.nl/login', {
-      waitUntil: ['networkidle0', 'domcontentloaded'],
+      waitUntil: 'domcontentloaded',
       timeout: 60000
     });
 
     // Wait for login form
-    await page.waitForSelector('input[name="email"]', { timeout: 10000 });
-    await page.waitForSelector('input[name="password"]', { timeout: 10000 });
+    await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+    await page.waitForSelector('input[name="password"]', { timeout: 30000 });
 
     // Clear fields first
     await page.$eval('input[name="email"]', (el) => el.value = '');
@@ -104,7 +102,7 @@ app.post('/api/scraper/test', async (req, res) => {
 
     // Find and click login button
     const submitButton = await page.waitForSelector('button[type="submit"]', {
-      timeout: 10000
+      timeout: 30000
     });
 
     if (!submitButton) {
@@ -114,8 +112,8 @@ app.post('/api/scraper/test', async (req, res) => {
     // Click and wait for navigation
     await Promise.all([
       page.waitForNavigation({ 
-        waitUntil: ['networkidle0', 'domcontentloaded'],
-        timeout: 30000 
+        waitUntil: 'domcontentloaded',
+        timeout: 60000 
       }),
       submitButton.click()
     ]);
@@ -123,7 +121,7 @@ app.post('/api/scraper/test', async (req, res) => {
     // Check for successful login
     const isLoggedIn = await Promise.race([
       page.waitForSelector('.dashboard-container', { 
-        timeout: 10000,
+        timeout: 30000,
         visible: true 
       }).then(() => {
         console.log('Found dashboard container');
@@ -131,7 +129,7 @@ app.post('/api/scraper/test', async (req, res) => {
       }).catch(() => false),
       
       page.waitForSelector('nav.main-menu', {
-        timeout: 10000,
+        timeout: 30000,
         visible: true
       }).then(() => {
         console.log('Found navigation menu');
@@ -146,12 +144,14 @@ app.post('/api/scraper/test', async (req, res) => {
       });
 
       if (errorText) {
+        console.log('Found error message:', errorText);
         throw new Error(`Login failed: ${errorText.trim()}`);
       }
 
       throw new Error('Login failed: Could not verify successful login');
     }
 
+    console.log('Login successful');
     res.json({ success: true });
   } catch (error) {
     console.error('Test connection error:', error);

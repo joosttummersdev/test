@@ -3,6 +3,11 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "framework": "astro",
+  "build": {
+    "env": {
+      "NODE_VERSION": "18"
+    }
+  },
   "functions": {
     "api/scraper.ts": {
       "memory": 3008,

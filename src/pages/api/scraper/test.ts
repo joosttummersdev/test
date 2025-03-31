@@ -1,17 +1,29 @@
 import type { APIRoute } from 'astro';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import path from 'path';
+import os from 'os';
 
 // Add stealth plugin to avoid detection
 puppeteer.use(StealthPlugin());
 
-export const post: APIRoute = async ({ request }) => {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-  };
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+};
 
+// Get Chrome path based on OS
+const isWindows = os.platform() === 'win32';
+const chromePath = path.join(
+  os.tmpdir(),
+  'puppeteer-cache',
+  'chrome',
+  isWindows ? 'win64-127.0.6533.88' : 'linux64-127.0.6533.88',
+  isWindows ? 'chrome.exe' : 'chrome'
+);
+
+export const post: APIRoute = async ({ request }) => {
   // Handle CORS preflight
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -28,10 +40,11 @@ export const post: APIRoute = async ({ request }) => {
 
     console.log('Launching browser...');
 
-    // Launch browser with increased timeout and proper configuration
+    // Launch browser with proper configuration
     browser = await puppeteer.launch({
       headless: true,
-      timeout: 120000, // Increase timeout to 120 seconds
+      executablePath: chromePath,
+      timeout: 120000,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -45,7 +58,7 @@ export const post: APIRoute = async ({ request }) => {
       console.log('Browser launched successfully');
       const page = await browser.newPage();
       
-      // Set longer timeouts
+      // Set longer timeout for navigation
       await page.setDefaultNavigationTimeout(60000);
       await page.setDefaultTimeout(60000);
 
@@ -63,33 +76,17 @@ export const post: APIRoute = async ({ request }) => {
         }
       });
 
-      // Log navigation events
-      page.on('load', () => console.log(`Page loaded: ${page.url()}`));
-      page.on('error', error => console.log(`Page error: ${error.message}`));
-      page.on('pageerror', error => console.log(`JS error: ${error.message}`));
-      page.on('console', msg => console.log(`Console: ${msg.text()}`));
+      // Add delay before navigation
+      await new Promise(r => setTimeout(r, 1000));
 
-      console.log('Navigating to login page...');
+      // Navigate to login page
+      await page.goto('https://app.salesdock.nl/login', {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000
+      });
 
-      // Navigate to login page with retry logic
-      let retries = 3;
-      while (retries > 0) {
-        try {
-          await page.goto('https://app.salesdock.nl/login', {
-            waitUntil: ['networkidle0', 'domcontentloaded'],
-            timeout: 60000
-          });
-          break;
-        } catch (error) {
-          console.log(`Navigation attempt failed (${retries} retries left):`, error);
-          retries--;
-          if (retries === 0) throw error;
-          await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds before retry
-        }
-      }
-
-      // Log current URL
-      console.log('Current URL:', await page.url());
+      // Add delay after navigation
+      await new Promise(r => setTimeout(r, 1000));
 
       // Wait for login form
       await page.waitForSelector('input[name="email"]', { timeout: 30000 });
@@ -103,6 +100,9 @@ export const post: APIRoute = async ({ request }) => {
       await page.type('input[name="email"]', username);
       await page.type('input[name="password"]', password);
 
+      // Add delay before clicking
+      await new Promise(r => setTimeout(r, 1000));
+
       // Find and click login button
       const submitButton = await page.waitForSelector('button[type="submit"]', {
         timeout: 30000
@@ -115,14 +115,14 @@ export const post: APIRoute = async ({ request }) => {
       // Click and wait for navigation
       await Promise.all([
         page.waitForNavigation({ 
-          waitUntil: ['networkidle0', 'domcontentloaded'],
+          waitUntil: 'domcontentloaded',
           timeout: 60000 
         }),
         submitButton.click()
       ]);
 
-      // Log new URL after navigation
-      console.log('Post-login URL:', await page.url());
+      // Add delay after navigation
+      await new Promise(r => setTimeout(r, 1000));
 
       // Check for successful login
       const isLoggedIn = await Promise.race([
@@ -144,8 +144,6 @@ export const post: APIRoute = async ({ request }) => {
       ]);
 
       if (!isLoggedIn) {
-        console.log('Page content after login attempt:', await page.content());
-        
         const errorText = await page.evaluate(() => {
           const errorElement = document.querySelector('.alert-danger, .error-message');
           return errorElement ? errorElement.textContent : null;
@@ -173,15 +171,14 @@ export const post: APIRoute = async ({ request }) => {
       );
     } finally {
       if (browser) {
-        console.log('Closing browser...');
         await browser.close();
       }
     }
   } catch (error: any) {
-    console.error('Test connection error:', error);
+    console.error('SCRAPER ERROR:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error.message || 'Unexpected error',
         details: error.stack
       }), 
       { 

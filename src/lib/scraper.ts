@@ -1,5 +1,3 @@
-import { PUBLIC_API_BASE } from '../env';
-
 interface TestCredentials {
   username: string;
   password: string;
@@ -22,7 +20,7 @@ export async function testScraperCredentials(credentials: TestCredentials) {
   const timeout = createTimeoutPromise(30000);
 
   try {
-    const apiBase = PUBLIC_API_BASE || "https://scraper-73dv.onrender.com";
+    const apiBase = 'https://scraper-73dv.onrender.com';
     
     // Race between fetch and timeout
     const response = await Promise.race([

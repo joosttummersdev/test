@@ -1,8 +1,6 @@
 import type { APIRoute } from 'astro';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import path from 'path';
-import os from 'os';
 
 // Add stealth plugin to avoid detection
 puppeteer.use(StealthPlugin());
@@ -12,16 +10,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
-
-// Get Chrome path based on OS
-const isWindows = os.platform() === 'win32';
-const chromePath = path.join(
-  os.tmpdir(),
-  'puppeteer-cache',
-  'chrome',
-  isWindows ? 'win64-127.0.6533.88' : 'linux64-127.0.6533.88',
-  isWindows ? 'chrome.exe' : 'chrome'
-);
 
 export const post: APIRoute = async ({ request }) => {
   // Handle CORS preflight
@@ -43,7 +31,7 @@ export const post: APIRoute = async ({ request }) => {
     // Launch browser with proper configuration
     browser = await puppeteer.launch({
       headless: true,
-      executablePath: chromePath,
+      executablePath: process.env.CHROME_EXECUTABLE_PATH || '/usr/bin/google-chrome',
       timeout: 120000,
       args: [
         '--no-sandbox',

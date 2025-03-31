@@ -6,8 +6,7 @@
   "functions": {
     "api/scraper.ts": {
       "memory": 3008,
-      "maxDuration": 60,
-      "runtime": "nodejs18.x"
+      "maxDuration": 60
     }
   }
 }

@@ -57,7 +57,6 @@ export const handler = async (event) => {
       args: chromium.args,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
-      defaultViewport: chromium.defaultViewport,
       ignoreHTTPSErrors: true
     });
 
@@ -161,12 +160,12 @@ export const handler = async (event) => {
     };
 
   } catch (error) {
-    console.error('Test connection error:', error);
+    console.error('SCRAPER ERROR:', error);
     return {
       statusCode: error.message.includes('Login failed') ? 401 : 500,
       headers: corsHeaders,
       body: JSON.stringify({ 
-        error: error.message,
+        error: error.message || 'Unexpected error',
         details: error.stack
       })
     };

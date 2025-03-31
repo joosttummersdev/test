@@ -279,44 +279,48 @@ const { data: recentErrors } = await supabase
       };
 
       // Test credentials before saving
-      const testResponse = await fetch('/api/scraper', {
+      const response = await fetch('/api/scraper', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          username,
-          password
-        })
+        body: JSON.stringify({ username, password })
       });
 
-      if (!testResponse.ok) {
-        const testResult = await testResponse.json();
-        throw new Error(`Login test failed: ${testResult.error || 'Unknown error'}`);
+      let result;
+      try {
+        result = await response.json();
+      } catch (err) {
+        const text = await response.text();
+        throw new Error(`Server error (geen JSON): ${text}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Onbekende fout bij login');
       }
 
       // Save configuration
-      let result;
+      let saveResult;
       if (editMode) {
         const configId = formData.get('configId')?.toString();
         if (!configId) throw new Error('Config ID ontbreekt');
 
-        result = await supabase
+        saveResult = await supabase
           .from('scraper_configs')
           .update(configData)
           .eq('id', configId)
           .select()
           .single();
       } else {
-        result = await supabase
+        saveResult = await supabase
           .from('scraper_configs')
           .insert([configData])
           .select()
           .single();
       }
 
-      if (result.error) {
-        throw new Error(result.error.message);
+      if (saveResult.error) {
+        throw new Error(saveResult.error.message);
       }
 
       hideModal();

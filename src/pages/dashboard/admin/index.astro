@@ -1,0 +1,11 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { protectRoute } from '../../../middleware/auth';
+
+// Protect this route
+const redirectResponse = await protectRoute(Astro, 'admin');
+if (redirectResponse) return redirectResponse;
+
+// Redirect to the actual admin interface
+return Astro.redirect('/admin');
+---

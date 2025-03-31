@@ -1,0 +1,435 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { supabaseAdmin } from '../../../../lib/supabaseClient';
+
+export async function getStaticPaths() {
+  const { data: suppliers } = await supabaseAdmin
+    .from('suppliers')
+    .select('id');
+
+  return suppliers?.map(supplier => ({
+    params: { id: supplier.id }
+  })) || [];
+}
+
+const { id } = Astro.params;
+
+// Get supplier details with projects and propositions
+const { data: supplier } = await supabaseAdmin
+  .from('suppliers')
+  .select(`
+    *,
+    projects (
+      id,
+      name,
+      type,
+      description,
+      propositions (
+        id,
+        name,
+        commission,
+        active
+      )
+    )
+  `)
+  .eq('id', id)
+  .single();
+
+if (!supplier) {
+  return Astro.redirect('/admin/suppliers');
+}
+
+// Group projects by type
+const businessProjects = supplier.projects?.filter(p => p.type === 'business') || [];
+const consumerProjects = supplier.projects?.filter(p => p.type === 'consumer') || [];
+---
+
+<AdminLayout title={supplier.name}>
+  <div class="space-y-6">
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">{supplier.name}</h1>
+        <p class="mt-2 text-sm text-gray-700">{supplier.description}</p>
+      </div>
+      <div class="mt-4 sm:mt-0">
+        <button
+          type="button"
+          onclick="editSupplier()"
+          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+        >
+          Bewerken
+        </button>
+      </div>
+    </div>
+
+    <!-- Supplier Details -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-base font-semibold leading-6 text-gray-900">Details</h3>
+        <dl class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500">Standaard Commissie</dt>
+            <dd class="mt-1 text-sm text-gray-900">{supplier.commission}%</dd>
+          </div>
+          <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500">Aantal Projecten</dt>
+            <dd class="mt-1 text-sm text-gray-900">{supplier.projects?.length || 0}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Business Projects -->
+    {businessProjects.length > 0 && (
+      <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <div class="flex justify-between items-center">
+            <h3 class="text-base font-semibold leading-6 text-gray-900">Zakelijke Projecten</h3>
+            <button
+              onclick={`addProject('business')`}
+              class="inline-flex items-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500"
+            >
+              Nieuw Project
+            </button>
+          </div>
+          <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {businessProjects.map((project) => (
+              <div class="bg-white border rounded-lg shadow-sm">
+                <div class="p-4">
+                  <h4 class="text-lg font-medium text-gray-900">{project.name}</h4>
+                  {project.description && (
+                    <p class="mt-1 text-sm text-gray-600">{project.description}</p>
+                  )}
+                  <div class="mt-4">
+                    <span class="text-sm font-medium text-gray-500">
+                      {project.propositions?.length || 0} Proposities
+                    </span>
+                    <span class="mx-2 text-gray-300">|</span>
+                    <span class="text-sm font-medium text-gray-500">
+                      {project.propositions?.filter(p => p.active)?.length || 0} Actief
+                    </span>
+                  </div>
+                </div>
+                <div class="border-t bg-gray-50 px-4 py-3 flex justify-end space-x-3">
+                  <a
+                    href={`/admin/suppliers/projects/${project.id}`}
+                    class="text-sm font-medium text-orange-600 hover:text-orange-500"
+                  >
+                    Details
+                  </a>
+                  <button
+                    onclick={`editProject('${project.id}')`}
+                    class="text-sm font-medium text-gray-600 hover:text-gray-500"
+                  >
+                    Bewerken
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+
+    <!-- Consumer Projects -->
+    {consumerProjects.length > 0 && (
+      <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <div class="flex justify-between items-center">
+            <h3 class="text-base font-semibold leading-6 text-gray-900">Particuliere Projecten</h3>
+            <button
+              onclick={`addProject('consumer')`}
+              class="inline-flex items-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500"
+            >
+              Nieuw Project
+            </button>
+          </div>
+          <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {consumerProjects.map((project) => (
+              <div class="bg-white border rounded-lg shadow-sm">
+                <div class="p-4">
+                  <h4 class="text-lg font-medium text-gray-900">{project.name}</h4>
+                  {project.description && (
+                    <p class="mt-1 text-sm text-gray-600">{project.description}</p>
+                  )}
+                  <div class="mt-4">
+                    <span class="text-sm font-medium text-gray-500">
+                      {project.propositions?.length || 0} Proposities
+                    </span>
+                    <span class="mx-2 text-gray-300">|</span>
+                    <span class="text-sm font-medium text-gray-500">
+                      {project.propositions?.filter(p => p.active)?.length || 0} Actief
+                    </span>
+                  </div>
+                </div>
+                <div class="border-t bg-gray-50 px-4 py-3 flex justify-end space-x-3">
+                  <a
+                    href={`/admin/suppliers/projects/${project.id}`}
+                    class="text-sm font-medium text-orange-600 hover:text-orange-500"
+                  >
+                    Details
+                  </a>
+                  <button
+                    onclick={`editProject('${project.id}')`}
+                    class="text-sm font-medium text-gray-600 hover:text-gray-500"
+                  >
+                    Bewerken
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+
+  <!-- Edit Supplier Modal -->
+  <div id="supplierModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+      <div class="px-6 py-4 border-b">
+        <h3 class="text-lg font-medium text-gray-900">Leverancier Bewerken</h3>
+      </div>
+      
+      <form id="supplierForm" class="px-6 py-4">
+        <div class="space-y-4">
+          <div>
+            <label for="name" class="block text-sm font-medium text-gray-700">Naam</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={supplier.name}
+              required
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            />
+          </div>
+          
+          <div>
+            <label for="description" class="block text-sm font-medium text-gray-700">Beschrijving</label>
+            <textarea
+              id="description"
+              name="description"
+              rows="3"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            >{supplier.description}</textarea>
+          </div>
+          
+          <div>
+            <label for="commission" class="block text-sm font-medium text-gray-700">Commissie (%)</label>
+            <input
+              type="number"
+              id="commission"
+              name="commission"
+              value={supplier.commission}
+              required
+              min="0"
+              step="0.01"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            />
+          </div>
+        </div>
+      </form>
+      
+      <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+        <button
+          type="button"
+          onclick="hideModal('supplierModal')"
+          class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+        >
+          Annuleren
+        </button>
+        <button
+          type="submit"
+          form="supplierForm"
+          class="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md"
+        >
+          Opslaan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Project Modal -->
+  <div id="projectModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+      <div class="px-6 py-4 border-b">
+        <h3 class="text-lg font-medium text-gray-900" id="projectModalTitle">Nieuw Project</h3>
+      </div>
+      
+      <form id="projectForm" class="px-6 py-4">
+        <input type="hidden" id="projectId" name="projectId" />
+        <input type="hidden" id="projectType" name="projectType" />
+        <div class="space-y-4">
+          <div>
+            <label for="projectName" class="block text-sm font-medium text-gray-700">Naam</label>
+            <input
+              type="text"
+              id="projectName"
+              name="projectName"
+              required
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            />
+          </div>
+          
+          <div>
+            <label for="projectDescription" class="block text-sm font-medium text-gray-700">Beschrijving</label>
+            <textarea
+              id="projectDescription"
+              name="projectDescription"
+              rows="3"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            ></textarea>
+          </div>
+        </div>
+      </form>
+      
+      <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+        <button
+          type="button"
+          onclick="hideModal('projectModal')"
+          class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+        >
+          Annuleren
+        </button>
+        <button
+          type="submit"
+          form="projectForm"
+          class="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md"
+        >
+          Opslaan
+        </button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ supplier }}>
+  import { supabase } from '../../../../lib/supabaseClient';
+
+  // Modal handling
+  function hideModal(modalId: string) {
+    document.getElementById(modalId)?.classList.add('hidden');
+  }
+
+  function showModal(modalId: string) {
+    document.getElementById(modalId)?.classList.remove('hidden');
+  }
+
+  // Edit supplier
+  window.editSupplier = function() {
+    showModal('supplierModal');
+  };
+
+  // Handle supplier form submission
+  document.getElementById('supplierForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .update({
+          name: formData.get('name'),
+          description: formData.get('description') || null,
+          commission: Number(formData.get('commission'))
+        })
+        .eq('id', supplier.id);
+      
+      if (error) throw error;
+      
+      hideModal('supplierModal');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating supplier:', error);
+      alert('Er is een fout opgetreden bij het bijwerken van de leverancier.');
+    }
+  });
+
+  // Project handling
+  window.addProject = function(type: 'business' | 'consumer') {
+    document.getElementById('projectModalTitle')!.textContent = 'Nieuw Project';
+    document.getElementById('projectId')!.value = '';
+    document.getElementById('projectType')!.value = type;
+    (document.getElementById('projectForm') as HTMLFormElement).reset();
+    showModal('projectModal');
+  };
+
+  window.editProject = async function(projectId: string) {
+    document.getElementById('projectModalTitle')!.textContent = 'Project Bewerken';
+    document.getElementById('projectId')!.value = projectId;
+    
+    const { data: project, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching project:', error);
+      alert(error.message);
+      return;
+    }
+      
+    if (project) {
+      document.getElementById('projectType')!.value = project.type;
+      (document.getElementById('projectName') as HTMLInputElement).value = project.name;
+      (document.getElementById('projectDescription') as HTMLTextAreaElement).value = project.description || '';
+      showModal('projectModal');
+    }
+  };
+
+  // Handle project form submission
+  document.getElementById('projectForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const projectId = formData.get('projectId');
+    
+    try {
+      if (projectId) {
+        // Update existing project
+        const { error } = await supabase
+          .from('projects')
+          .update({
+            name: formData.get('projectName'),
+            description: formData.get('projectDescription') || null,
+            type: formData.get('projectType')
+          })
+          .eq('id', projectId);
+        
+        if (error) throw error;
+      } else {
+        // Create new project
+        const { error } = await supabase
+          .from('projects')
+          .insert({
+            supplier_id: supplier.id,
+            name: formData.get('projectName'),
+            description: formData.get('projectDescription') || null,
+            type: formData.get('projectType')
+          });
+        
+        if (error) throw error;
+      }
+      
+      hideModal('projectModal');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error saving project:', error);
+      alert('Er is een fout opgetreden bij het opslaan van het project.');
+    }
+  });
+
+  // Close modals on outside click
+  window.addEventListener('click', (e) => {
+    const modals = ['supplierModal', 'projectModal'];
+    modals.forEach(modalId => {
+      const modal = document.getElementById(modalId);
+      if (e.target === modal) {
+        hideModal(modalId);
+      }
+    });
+  });
+</script>

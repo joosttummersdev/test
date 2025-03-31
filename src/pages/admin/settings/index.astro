@@ -1,0 +1,287 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { supabase } from '../../../lib/supabaseClient';
+
+// Get current user's profile
+const { data: { session } } = await supabase.auth.getSession();
+const { data: profile } = await supabase
+  .from('profiles')
+  .select('*')
+  .eq('id', session?.user?.id)
+  .single();
+
+// Get system settings
+const { data: systemSettings } = await supabase
+  .from('system_settings')
+  .select('*')
+  .single();
+---
+
+<AdminLayout title="Instellingen">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="md:flex md:items-center md:justify-between">
+      <div class="min-w-0 flex-1">
+        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+          Instellingen
+        </h2>
+      </div>
+    </div>
+
+    <!-- Profile Settings -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Profiel Instellingen</h3>
+        <div class="mt-2 max-w-xl text-sm text-gray-500">
+          <p>Update je persoonlijke gegevens en voorkeuren.</p>
+        </div>
+        <form id="profileForm" class="mt-5 space-y-6">
+          <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <div class="sm:col-span-3">
+              <label for="firstName" class="block text-sm font-medium text-gray-700">Voornaam</label>
+              <input
+                type="text"
+                name="firstName"
+                id="firstName"
+                value={profile?.first_name}
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+              />
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="lastName" class="block text-sm font-medium text-gray-700">Achternaam</label>
+              <input
+                type="text"
+                name="lastName"
+                id="lastName"
+                value={profile?.last_name}
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+              />
+            </div>
+
+            <div class="sm:col-span-4">
+              <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+              <input
+                type="email"
+                name="email"
+                id="email"
+                value={profile?.email}
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+              />
+            </div>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              class="ml-3 inline-flex justify-center rounded-md border border-transparent bg-orange-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+            >
+              Opslaan
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Password Change -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Wachtwoord Wijzigen</h3>
+        <div class="mt-2 max-w-xl text-sm text-gray-500">
+          <p>Zorg ervoor dat je account een sterk wachtwoord gebruikt.</p>
+        </div>
+        <form id="passwordForm" class="mt-5 space-y-6">
+          <div class="space-y-4">
+            <div>
+              <label for="currentPassword" class="block text-sm font-medium text-gray-700">
+                Huidig Wachtwoord
+              </label>
+              <input
+                type="password"
+                name="currentPassword"
+                id="currentPassword"
+                required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label for="newPassword" class="block text-sm font-medium text-gray-700">
+                Nieuw Wachtwoord
+              </label>
+              <input
+                type="password"
+                name="newPassword"
+                id="newPassword"
+                required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label for="confirmPassword" class="block text-sm font-medium text-gray-700">
+                Bevestig Nieuw Wachtwoord
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                id="confirmPassword"
+                required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+              />
+            </div>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              class="ml-3 inline-flex justify-center rounded-md border border-transparent bg-orange-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+            >
+              Wachtwoord Wijzigen
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Notification Settings -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Notificatie Instellingen</h3>
+        <div class="mt-2 max-w-xl text-sm text-gray-500">
+          <p>Bepaal welke notificaties je wilt ontvangen.</p>
+        </div>
+        <form id="notificationForm" class="mt-5">
+          <div class="space-y-4">
+            <div class="relative flex items-start">
+              <div class="flex h-5 items-center">
+                <input
+                  id="emailNotifications"
+                  name="emailNotifications"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                  checked
+                />
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="emailNotifications" class="font-medium text-gray-700">Email notificaties</label>
+                <p class="text-gray-500">Ontvang updates over nieuwe sales en commissies via email.</p>
+              </div>
+            </div>
+
+            <div class="relative flex items-start">
+              <div class="flex h-5 items-center">
+                <input
+                  id="saleNotifications"
+                  name="saleNotifications"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                  checked
+                />
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="saleNotifications" class="font-medium text-gray-700">Sale notificaties</label>
+                <p class="text-gray-500">Ontvang meldingen over nieuwe sales en statuswijzigingen.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex justify-end">
+            <button
+              type="submit"
+              class="ml-3 inline-flex justify-center rounded-md border border-transparent bg-orange-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+            >
+              Voorkeuren Opslaan
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import { supabase } from '../../../lib/supabaseClient';
+
+  // Handle profile form submission
+  const profileForm = document.getElementById('profileForm');
+  profileForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    try {
+      const formData = new FormData(e.target as HTMLFormElement);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: formData.get('firstName'),
+          last_name: formData.get('lastName'),
+          email: formData.get('email'),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+
+      if (error) throw error;
+      
+      alert('Profiel succesvol bijgewerkt');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Er is een fout opgetreden bij het bijwerken van je profiel');
+    }
+  });
+
+  // Handle password form submission
+  const passwordForm = document.getElementById('passwordForm');
+  passwordForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    try {
+      const formData = new FormData(e.target as HTMLFormElement);
+      const newPassword = formData.get('newPassword');
+      const confirmPassword = formData.get('confirmPassword');
+      
+      if (newPassword !== confirmPassword) {
+        alert('Nieuwe wachtwoorden komen niet overeen');
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword as string
+      });
+
+      if (error) throw error;
+      
+      alert('Wachtwoord succesvol gewijzigd');
+      (e.target as HTMLFormElement).reset();
+    } catch (error) {
+      console.error('Error updating password:', error);
+      alert('Er is een fout opgetreden bij het wijzigen van je wachtwoord');
+    }
+  });
+
+  // Handle notification form submission
+  const notificationForm = document.getElementById('notificationForm');
+  notificationForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    try {
+      const formData = new FormData(e.target as HTMLFormElement);
+      
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          email_notifications: formData.get('emailNotifications') === 'on',
+          sale_notifications: formData.get('saleNotifications') === 'on',
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      
+      alert('Notificatie voorkeuren opgeslagen');
+    } catch (error) {
+      console.error('Error saving notification preferences:', error);
+      alert('Er is een fout opgetreden bij het opslaan van je notificatie voorkeuren');
+    }
+  });
+</script>

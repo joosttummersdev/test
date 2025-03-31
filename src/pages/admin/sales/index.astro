@@ -1,0 +1,368 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { supabase } from '../../../lib/supabaseClient';
+import { format } from 'date-fns';
+import { nl } from 'date-fns/locale';
+
+// Get filter values from URL
+const searchParams = Astro.url.searchParams;
+const status = searchParams.getAll('status');
+const startDate = searchParams.get('startDate');
+const endDate = searchParams.get('endDate');
+const agentIds = searchParams.getAll('agent');
+const supplierIds = searchParams.getAll('supplier');
+
+// Fetch all agents
+const { data: agents } = await supabase
+  .from('profiles')
+  .select('id, first_name, last_name')
+  .eq('role', 'agent')
+  .order('first_name');
+
+// Fetch all suppliers
+const { data: suppliers } = await supabase
+  .from('suppliers')
+  .select('id, name')
+  .order('name');
+
+// Build base query for sales
+let query = supabase
+  .from('sales')
+  .select(`
+    *,
+    customers (
+      first_name,
+      last_name,
+      email,
+      phone
+    ),
+    suppliers (
+      name
+    ),
+    agents:profiles!sales_agent_id_fkey (
+      first_name,
+      last_name
+    )
+  `);
+
+// Apply filters
+if (status.length > 0) {
+  query = query.in('status', status);
+}
+
+if (startDate) {
+  query = query.gte('sale_date', startDate);
+}
+
+if (endDate) {
+  query = query.lte('sale_date', endDate);
+}
+
+if (agentIds.length > 0) {
+  query = query.in('agent_id', agentIds);
+}
+
+if (supplierIds.length > 0) {
+  query = query.in('supplier_id', supplierIds);
+}
+
+// Execute query
+const { data: sales } = await query.order('sale_date', { ascending: false });
+
+// Calculate totals
+const totalSales = sales?.length ?? 0;
+const totalRevenue = sales?.reduce((sum, sale) => sum + Number(sale.gross_amount), 0) ?? 0;
+const totalCommissions = sales?.reduce((sum, sale) => sum + Number(sale.agent_commission), 0) ?? 0;
+
+// Format currency
+const formatCurrency = (amount: number) => 
+  new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(amount);
+
+// Format date
+const formatDate = (date: string) => {
+  return format(new Date(date), 'd MMMM yyyy', { locale: nl });
+};
+
+// Get status badge color
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return 'bg-green-100 text-green-800';
+    case 'processing':
+      return 'bg-blue-100 text-blue-800';
+    case 'cancelled':
+      return 'bg-red-100 text-red-800';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+---
+
+<AdminLayout title="Sales Management">
+  <div class="space-y-6">
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Sales Management</h1>
+        <p class="mt-2 text-sm text-gray-700">
+          Beheer en analyseer alle sales in het systeem
+        </p>
+      </div>
+      <div class="mt-4 sm:mt-0">
+        <a
+          href="/admin/sales/new"
+          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500"
+        >
+          Nieuwe Sale
+        </a>
+      </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <form id="filterForm" class="space-y-6">
+          <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <!-- Status Filter -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">Status</label>
+              <div class="mt-1">
+                <select
+                  name="status"
+                  multiple
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                >
+                  <option value="pending" selected={status.includes('pending')}>In behandeling</option>
+                  <option value="processing" selected={status.includes('processing')}>In verwerking</option>
+                  <option value="completed" selected={status.includes('completed')}>Afgerond</option>
+                  <option value="cancelled" selected={status.includes('cancelled')}>Geannuleerd</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Date Range -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">Periode</label>
+              <div class="mt-1 grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  name="startDate"
+                  value={startDate ?? ''}
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                />
+                <input
+                  type="date"
+                  name="endDate"
+                  value={endDate ?? ''}
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                />
+              </div>
+            </div>
+
+            <!-- Agent Filter -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">Agent</label>
+              <div class="mt-1">
+                <select
+                  name="agent"
+                  multiple
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                >
+                  {agents?.map(agent => (
+                    <option 
+                      value={agent.id}
+                      selected={agentIds.includes(agent.id)}
+                    >
+                      {agent.first_name} {agent.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <!-- Supplier Filter -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">Leverancier</label>
+              <div class="mt-1">
+                <select
+                  name="supplier"
+                  multiple
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                >
+                  {suppliers?.map(supplier => (
+                    <option 
+                      value={supplier.id}
+                      selected={supplierIds.includes(supplier.id)}
+                    >
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              onclick="clearFilters()"
+              class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+            >
+              Filters Wissen
+            </button>
+            <button
+              type="submit"
+              class="inline-flex justify-center rounded-md bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-700"
+            >
+              Filters Toepassen
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <dt class="text-sm font-medium text-gray-500 truncate">
+            Totaal Aantal Sales
+          </dt>
+          <dd class="mt-1 text-3xl font-semibold text-gray-900">
+            {totalSales}
+          </dd>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <dt class="text-sm font-medium text-gray-500 truncate">
+            Totale Omzet
+          </dt>
+          <dd class="mt-1 text-3xl font-semibold text-gray-900">
+            {formatCurrency(totalRevenue)}
+          </dd>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <dt class="text-sm font-medium text-gray-500 truncate">
+            Totale Commissies
+          </dt>
+          <dd class="mt-1 text-3xl font-semibold text-gray-900">
+            {formatCurrency(totalCommissions)}
+          </dd>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sales Table -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Datum
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Klant
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Leverancier
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Agent
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Omzet
+                </th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Commissie
+                </th>
+                <th scope="col" class="relative px-6 py-3">
+                  <span class="sr-only">Acties</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {sales?.map((sale) => (
+                <tr>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDate(sale.sale_date)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">
+                      {sale.customers.first_name} {sale.customers.last_name}
+                    </div>
+                    <div class="text-sm text-gray-500">
+                      {sale.customers.email}
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {sale.suppliers.name}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {sale.agents.first_name} {sale.agents.last_name}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(sale.status)}`}>
+                      {sale.status}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                    {formatCurrency(sale.gross_amount)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                    {formatCurrency(sale.agent_commission)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <a
+                      href={`/admin/sales/${sale.id}`}
+                      class="text-orange-600 hover:text-orange-900"
+                    >
+                      Details
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  // Handle form submission
+  const form = document.getElementById('filterForm');
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    
+    // Build query string from form data
+    const formData = new FormData(e.target as HTMLFormElement);
+    const params = new URLSearchParams();
+    
+    // Handle multiple select values
+    formData.forEach((value, key) => {
+      if (value) {
+        params.append(key, value.toString());
+      }
+    });
+    
+    // Update URL with filters
+    window.location.search = params.toString();
+  });
+
+  // Clear filters
+  window.clearFilters = () => {
+    window.location.search = '';
+  };
+</script>

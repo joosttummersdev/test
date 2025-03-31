@@ -1,0 +1,71 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Test Redirects">
+  <div class="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        Test Redirects
+      </h2>
+      
+      <div class="mt-8 space-y-4">
+        <button 
+          onclick="testRedirect('/admin')"
+          class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700"
+        >
+          Test Admin Redirect
+        </button>
+
+        <button 
+          onclick="testRedirect('/agent')"
+          class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700"
+        >
+          Test Agent Redirect
+        </button>
+
+        <div id="log" class="mt-4 p-4 bg-gray-50 rounded-md font-mono text-sm"></div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+function log(message) {
+  const logEl = document.getElementById('log');
+  const entry = document.createElement('div');
+  entry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+  logEl.appendChild(entry);
+  console.log(message);
+}
+
+window.testRedirect = async function(path) {
+  log(`Testing redirect to ${path}`);
+
+  // Test 1: window.location.href
+  try {
+    log('Attempting window.location.href...');
+    window.location.href = path;
+  } catch (err) {
+    log(`Error with location.href: ${err.message}`);
+  }
+
+  // Test 2: window.location.assign
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  try {
+    log('Attempting window.location.assign...');
+    window.location.assign(path);
+  } catch (err) {
+    log(`Error with location.assign: ${err.message}`);
+  }
+
+  // Test 3: window.location.replace
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  try {
+    log('Attempting window.location.replace...');
+    window.location.replace(path);
+  } catch (err) {
+    log(`Error with location.replace: ${err.message}`);
+  }
+}
+</script>

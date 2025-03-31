@@ -1,0 +1,398 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { supabase } from '../../../lib/supabaseClient';
+
+// Get scraper configs
+const { data: configs } = await supabase
+  .from('scraper_configs')
+  .select('*')
+  .order('created_at', { ascending: false });
+
+// Get recent runs with errors
+const { data: recentErrors } = await supabase
+  .from('scraper_runs')
+  .select(`
+    *,
+    scraper_configs (
+      name,
+      type
+    )
+  `)
+  .not('error', 'is', null)
+  .order('created_at', { ascending: false })
+  .limit(10);
+---
+
+<AdminLayout title="Scraper Debug">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Scraper Debug</h1>
+        <p class="mt-2 text-sm text-gray-700">
+          Debug tools voor de Salesdock scraper
+        </p>
+      </div>
+      <div class="mt-4 sm:mt-0">
+        <button
+          type="button"
+          onclick="showConfigModal()"
+          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500"
+        >
+          Nieuwe Configuratie
+        </button>
+      </div>
+    </div>
+
+    <!-- Debug Console -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Debug Console</h3>
+        <div class="mt-4">
+          <div class="flex space-x-4 mb-4">
+            <select 
+              id="configSelect"
+              class="block w-64 rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            >
+              <option value="">Selecteer configuratie...</option>
+              {configs?.map(config => (
+                <option value={config.id}>{config.name}</option>
+              ))}
+            </select>
+            <button
+              id="startDebug"
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              disabled
+            >
+              Start Debug Run
+            </button>
+          </div>
+          
+          <!-- Terminal Container -->
+          <div class="terminal-container">
+            <div id="terminal" class="font-mono text-sm text-white p-4"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Config Modal -->
+    <div id="configModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b">
+          <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Nieuwe Configuratie</h3>
+        </div>
+        
+        <form id="configForm" class="px-6 py-4">
+          <input type="hidden" id="configId" name="configId" />
+          <div class="space-y-4">
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700">Naam</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+              />
+            </div>
+            
+            <div>
+              <label for="type" class="block text-sm font-medium text-gray-700">Type</label>
+              <select
+                id="type"
+                name="type"
+                required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+              >
+                <option value="salesdock">Salesdock</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="username" class="block text-sm font-medium text-gray-700">Gebruikersnaam</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+              />
+            </div>
+
+            <div>
+              <label for="password" class="block text-sm font-medium text-gray-700">Wachtwoord</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+              />
+            </div>
+
+            <div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="isActive" name="isActive" class="sr-only peer" checked>
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                <span class="ml-3 text-sm font-medium text-gray-700">Actief</span>
+              </label>
+            </div>
+
+            <!-- Error message container -->
+            <div id="errorMessage" class="hidden rounded-md bg-red-50 p-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <h3 class="text-sm font-medium text-red-800" id="errorText"></h3>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+        
+        <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+          <button
+            type="button"
+            onclick="hideModal()"
+            class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+          >
+            Annuleren
+          </button>
+          <button
+            type="submit"
+            form="configForm"
+            id="submitButton"
+            class="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md flex items-center"
+          >
+            <span>Opslaan</span>
+            <svg id="loadingSpinner" class="animate-spin ml-2 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import { supabase } from '../../../lib/supabaseClient';
+  
+  const modal = document.getElementById('configModal');
+  const form = document.getElementById('configForm') as HTMLFormElement;
+  const modalTitle = document.getElementById('modalTitle');
+  const configIdInput = document.getElementById('configId') as HTMLInputElement;
+  const errorMessage = document.getElementById('errorMessage');
+  const errorText = document.getElementById('errorText');
+  const submitButton = document.getElementById('submitButton');
+  const loadingSpinner = document.getElementById('loadingSpinner');
+  
+  let editMode = false;
+
+  // Show error message
+  function showError(message: string) {
+    if (errorMessage && errorText) {
+      errorText.textContent = message;
+      errorMessage.classList.remove('hidden');
+    }
+  }
+
+  // Hide error message
+  function hideError() {
+    if (errorMessage) {
+      errorMessage.classList.add('hidden');
+    }
+  }
+
+  // Toggle loading state
+  function setLoading(isLoading: boolean) {
+    if (submitButton && loadingSpinner) {
+      submitButton.disabled = isLoading;
+      loadingSpinner.classList.toggle('hidden', !isLoading);
+      const buttonText = submitButton.querySelector('span');
+      if (buttonText) {
+        buttonText.textContent = isLoading ? 'Bezig met opslaan...' : 'Opslaan';
+      }
+    }
+  }
+  
+  // Show modal
+  window.showConfigModal = function() {
+    editMode = false;
+    modalTitle!.textContent = 'Nieuwe Configuratie';
+    form?.reset();
+    hideError();
+    modal?.classList.remove('hidden');
+  };
+  
+  // Hide modal
+  window.hideModal = function() {
+    modal?.classList.add('hidden');
+    form?.reset();
+    hideError();
+    setLoading(false);
+  };
+  
+  // Close on outside click
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) hideModal();
+  });
+  
+  // Handle form submission
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideError();
+    
+    try {
+      setLoading(true);
+      const formData = new FormData(form);
+      
+      // Get form values with validation
+      const name = formData.get('name')?.toString().trim();
+      const type = formData.get('type')?.toString().trim();
+      const username = formData.get('username')?.toString().trim();
+      const password = formData.get('password')?.toString().trim();
+      const isActive = formData.get('isActive') === 'on';
+
+      // Validate required fields
+      if (!name) throw new Error('Naam is verplicht');
+      if (!type) throw new Error('Type is verplicht');
+      if (!username) throw new Error('Gebruikersnaam is verplicht');
+      if (!password) throw new Error('Wachtwoord is verplicht');
+
+      // Create config data object
+      const configData = {
+        name,
+        type,
+        credentials: {
+          username,
+          password
+        },
+        is_active: isActive,
+        settings: {}
+      };
+
+      // Test credentials before saving
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      try {
+        const testResponse = await fetch('http://localhost:3001/api/scraper/test', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            username,
+            password
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!testResponse.ok) {
+          const testResult = await testResponse.json();
+          throw new Error(`Login test failed: ${testResult.error || 'Unknown error'}`);
+        }
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          throw new Error('Login test timed out after 30 seconds');
+        }
+        throw error;
+      }
+
+      // Save configuration
+      let result;
+      if (editMode) {
+        const configId = formData.get('configId')?.toString();
+        if (!configId) throw new Error('Config ID ontbreekt');
+
+        result = await supabase
+          .from('scraper_configs')
+          .update(configData)
+          .eq('id', configId)
+          .select()
+          .single();
+      } else {
+        result = await supabase
+          .from('scraper_configs')
+          .insert([configData])
+          .select()
+          .single();
+      }
+
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+
+      hideModal();
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error saving config:', error);
+      showError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  });
+  
+  // Edit config
+  window.editConfig = async function(id: string) {
+    editMode = true;
+    modalTitle!.textContent = 'Configuratie Bewerken';
+    hideError();
+    
+    try {
+      const { data: config, error } = await supabase
+        .from('scraper_configs')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (error) {
+        throw error;
+      }
+        
+      if (!config) {
+        throw new Error('Configuratie niet gevonden');
+      }
+
+      configIdInput.value = config.id;
+      (form.elements.namedItem('name') as HTMLInputElement).value = config.name;
+      (form.elements.namedItem('type') as HTMLSelectElement).value = config.type;
+      (form.elements.namedItem('username') as HTMLInputElement).value = config.credentials?.username || '';
+      (form.elements.namedItem('password') as HTMLInputElement).value = config.credentials?.password || '';
+      (form.elements.namedItem('isActive') as HTMLInputElement).checked = config.is_active;
+      
+      modal?.classList.remove('hidden');
+    } catch (error: any) {
+      console.error('Error loading config:', error);
+      showError(error.message);
+    }
+  };
+</script>
+
+<style>
+  .terminal-container {
+    height: 400px;
+    background: #1a1a1a;
+    padding: 10px;
+    border-radius: 6px;
+    overflow-y: auto;
+  }
+
+  .terminal-container #terminal {
+    height: 100%;
+    width: 100%;
+    color: #fff;
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+</style>

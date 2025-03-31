@@ -1,0 +1,11 @@
+---
+import AgentLayout from '../../../layouts/AgentLayout.astro';
+import { protectRoute } from '../../../middleware/auth';
+
+// Protect this route
+const redirectResponse = await protectRoute(Astro, 'agent');
+if (redirectResponse) return redirectResponse;
+
+// Redirect to the actual agent interface
+return Astro.redirect('/agent');
+---

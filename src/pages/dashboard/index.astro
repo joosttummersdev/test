@@ -1,0 +1,67 @@
+---
+import AgentLayout from '../../layouts/AgentLayout.astro';
+import { supabase, getUserProfile } from '../../lib/supabaseClient';
+import { protectRoute } from '../../middleware/auth';
+
+// Protect this route
+const redirectResponse = await protectRoute(Astro, 'agent');
+if (redirectResponse) return redirectResponse;
+
+const { profile } = await getUserProfile() || {};
+
+// Fetch agent's sales data
+const { data: salesData } = await supabase
+  .from('sales')
+  .select(`
+    *,
+    suppliers (name),
+    customers (first_name, last_name)
+  `)
+  .eq('agent_id', profile?.id)
+  .order('sale_date', { ascending: false })
+  .limit(10);
+
+// Calculate total commission
+const totalCommission = salesData?.reduce((sum, sale) => sum + sale.agent_commission, 0) ?? 0;
+---
+
+<AgentLayout title="Agent Dashboard">
+  <div class="space-y-6">
+    <h1 class="text-3xl font-bold">Agent Dashboard</h1>
+    
+    <!-- Stats -->
+    <div class="bg-white p-6 rounded-lg shadow">
+      <h3 class="text-gray-500 text-sm">Your Total Commission</h3>
+      <p class="text-2xl font-bold">€{totalCommission.toFixed(2)}</p>
+    </div>
+
+    <!-- Recent Sales -->
+    <div class="bg-white p-6 rounded-lg shadow">
+      <h2 class="text-xl font-bold mb-4">Recent Sales</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead>
+            <tr class="border-b">
+              <th class="text-left py-3 px-4">Date</th>
+              <th class="text-left py-3 px-4">Customer</th>
+              <th class="text-left py-3 px-4">Supplier</th>
+              <th class="text-right py-3 px-4">Commission</th>
+            </tr>
+          </thead>
+          <tbody>
+            {salesData?.map((sale) => (
+              <tr class="border-b">
+                <td class="py-3 px-4">{new Date(sale.sale_date).toLocaleDateString()}</td>
+                <td class="py-3 px-4">
+                  {sale.customers.first_name} {sale.customers.last_name}
+                </td>
+                <td class="py-3 px-4">{sale.suppliers.name}</td>
+                <td class="text-right py-3 px-4">€{sale.agent_commission.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</AgentLayout>

@@ -1,0 +1,201 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { supabase } from '../../../../lib/supabaseClient';
+
+const { id } = Astro.params;
+
+// Get run details
+const { data: run } = await supabase
+  .from('scraper_runs')
+  .select(`
+    *,
+    scraper_configs (
+      name,
+      type
+    )
+  `)
+  .eq('id', id)
+  .single();
+
+// Get results for this run
+const { data: results } = await supabase
+  .from('scraper_results')
+  .select('*')
+  .eq('run_id', id)
+  .order('created_at', { ascending: false });
+
+// Format duration
+function formatDuration(start: string, end: string | null) {
+  if (!end) return '-';
+  const duration = new Date(end).getTime() - new Date(start).getTime();
+  const minutes = Math.floor(duration / 60000);
+  const seconds = Math.floor((duration % 60000) / 1000);
+  return `${minutes}m ${seconds}s`;
+}
+---
+
+<AdminLayout title="Run Details">
+  <div class="space-y-6">
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Scraper Run Details</h1>
+        <p class="mt-2 text-sm text-gray-700">
+          Details en resultaten van de scraper run
+        </p>
+      </div>
+      <div class="mt-4 sm:mt-0">
+        <a
+          href="/admin/scraper"
+          class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+        >
+          Terug naar Overzicht
+        </a>
+      </div>
+    </div>
+
+    <!-- Run Details -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Run Informatie</h3>
+        <div class="mt-6 border-t border-gray-100">
+          <dl class="divide-y divide-gray-100">
+            <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+              <dt class="text-sm font-medium leading-6 text-gray-900">Configuratie</dt>
+              <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
+                {run?.scraper_configs?.name}
+              </dd>
+            </div>
+            <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+              <dt class="text-sm font-medium leading-6 text-gray-900">Status</dt>
+              <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
+                <span class={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${
+                  run?.status === 'completed' ? 'bg-green-50 text-green-700' :
+                  run?.status === 'failed' ? 'bg-red-50 text-red-700' :
+                  run?.status === 'running' ? 'bg-blue-50 text-blue-700' :
+                  'bg-gray-50 text-gray-700'
+                }`}>
+                  {run?.status}
+                </span>
+              </dd>
+            </div>
+            <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+              <dt class="text-sm font-medium leading-6 text-gray-900">Start Tijd</dt>
+              <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
+                {new Date(run?.started_at).toLocaleString()}
+              </dd>
+            </div>
+            <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+              <dt class="text-sm font-medium leading-6 text-gray-900">Duur</dt>
+              <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
+                {formatDuration(run?.started_at, run?.completed_at)}
+              </dd>
+            </div>
+            {run?.error && (
+              <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+                <dt class="text-sm font-medium leading-6 text-gray-900">Error</dt>
+                <dd class="mt-1 text-sm leading-6 text-red-600 sm:col-span-2 sm:mt-0">
+                  {run.error}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Resultaten</h3>
+        <div class="mt-6">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Data
+                  </th>
+                  <th scope="col" class="relative px-6 py-3">
+                    <span class="sr-only">Acties</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {results?.map((result) => (
+                  <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {result.type}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${
+                        result.processed ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'
+                      }`}>
+                        {result.processed ? 'Verwerkt' : 'Niet verwerkt'}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500">
+                      <pre class="whitespace-pre-wrap">{JSON.stringify(result.data, null, 2)}</pre>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      {!result.processed && (
+                        <button
+                          onclick={`processResult('${result.id}')`}
+                          class="text-orange-600 hover:text-orange-900"
+                        >
+                          Verwerken
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import { supabase } from '../../../../lib/supabaseClient';
+
+  // Process result
+  window.processResult = async function(resultId: string) {
+    try {
+      const { data: result, error: fetchError } = await supabase
+        .from('scraper_results')
+        .select('*')
+        .eq('id', resultId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Process the result data
+      const { data, error: processError } = await supabase.functions.invoke('process-sale', {
+        body: { result }
+      });
+
+      if (processError) throw processError;
+
+      // Mark as processed
+      const { error: updateError } = await supabase
+        .from('scraper_results')
+        .update({ processed: true })
+        .eq('id', resultId);
+
+      if (updateError) throw updateError;
+
+      window.location.reload();
+    } catch (error) {
+      console.error('Error processing result:', error);
+      alert('Er is een fout opgetreden bij het verwerken van het resultaat');
+    }
+  };
+</script>

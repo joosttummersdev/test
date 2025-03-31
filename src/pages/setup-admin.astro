@@ -1,0 +1,140 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { supabase } from '../lib/supabase';
+
+let setupStatus = {
+  success: false,
+  error: null,
+  message: '',
+  existingAdmin: false
+};
+
+// Check if admin already exists
+const { data: existingAdmin, error: checkError } = await supabase
+  .from('profiles')
+  .select('id, email')
+  .eq('role', 'admin')
+  .single();
+
+if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found
+  setupStatus.error = 'Error checking for existing admin';
+  setupStatus.message = checkError.message;
+} else if (existingAdmin) {
+  setupStatus.existingAdmin = true;
+  setupStatus.message = 'Admin account already exists';
+} else {
+  try {
+    // Create admin user with signUp
+    const { data: { user }, error: signUpError } = await supabase.auth.signUp({
+      email: 'joost@yoobar.nl',
+      password: 'Admin123!',
+      options: {
+        data: {
+          role: 'admin'
+        }
+      }
+    });
+
+    if (signUpError) {
+      setupStatus.error = 'Error creating admin user';
+      setupStatus.message = signUpError.message;
+    } else if (user) {
+      // Create admin profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          role: 'admin',
+          first_name: 'Joost',
+          last_name: 'Admin'
+        });
+
+      if (profileError) {
+        setupStatus.error = 'Error creating admin profile';
+        setupStatus.message = profileError.message;
+      } else {
+        // Update user's app metadata
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { role: 'admin' }
+        });
+
+        if (updateError) {
+          setupStatus.error = 'Error updating user metadata';
+          setupStatus.message = updateError.message;
+        } else {
+          setupStatus.success = true;
+          setupStatus.message = 'Admin account created successfully';
+        }
+      }
+    }
+  } catch (error: any) {
+    setupStatus.error = 'Unexpected error';
+    setupStatus.message = error.message;
+  }
+}
+---
+
+<Layout title="Admin Setup">
+  <div class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+      <h1 class="text-2xl font-bold mb-4">Admin Account Setup</h1>
+      
+      {setupStatus.existingAdmin ? (
+        <div class="text-yellow-600">
+          <p>Er bestaat al een admin account.</p>
+          <a href="/" class="mt-4 inline-block text-blue-600 hover:underline">
+            Ga naar Login
+          </a>
+        </div>
+      ) : setupStatus.error ? (
+        <div class="text-red-600">
+          <p>Error: {setupStatus.error}</p>
+          <p class="text-sm mt-2">{setupStatus.message}</p>
+          <a href="/debug-auth" class="mt-4 inline-block text-blue-600 hover:underline">
+            Bekijk Debug Informatie
+          </a>
+        </div>
+      ) : setupStatus.success ? (
+        <div class="space-y-4">
+          <div class="text-green-600">
+            Admin account is succesvol aangemaakt!
+          </div>
+          <div class="bg-gray-50 p-4 rounded-md">
+            <h2 class="font-semibold mb-2">Login gegevens:</h2>
+            <ul class="space-y-2">
+              <li><span class="font-medium">Email:</span> joost@yoobar.nl</li>
+              <li><span class="font-medium">Wachtwoord:</span> Admin123!</li>
+            </ul>
+          </div>
+          <div class="pt-4">
+            <a href="/" class="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+              Ga naar Login
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div class="text-gray-600">
+          Bezig met het aanmaken van het admin account...
+        </div>
+      )}
+
+      <div class="mt-6 pt-6 border-t">
+        <div class="text-sm text-gray-600">
+          <p class="mb-2">Troubleshooting:</p>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Controleer of de Supabase configuratie correct is</li>
+            <li>Bekijk de browser console voor meer details</li>
+            <li>Gebruik de <a href="/debug-auth" class="text-blue-600 hover:underline">Debug pagina</a> voor meer informatie</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  // Log auth state changes for debugging
+  window.supabase?.auth.onAuthStateChange((event, session) => {
+    console.log('Auth state changed:', event, session);
+  });
+</script>

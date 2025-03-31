@@ -1,0 +1,15 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { protectRoute } from '../../../middleware/auth';
+
+// Protect this route
+const redirectResponse = await protectRoute(Astro, 'admin');
+if (redirectResponse) return redirectResponse;
+---
+
+<AdminLayout title="Admin Dashboard">
+  <div class="space-y-6">
+    <h1 class="text-3xl font-bold">Admin Dashboard</h1>
+    <!-- Add your admin dashboard content here -->
+  </div>
+</AdminLayout>

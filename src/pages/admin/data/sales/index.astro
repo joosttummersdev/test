@@ -1,0 +1,502 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { supabase } from '../../../../lib/supabaseClient';
+
+// Get filter values from URL
+const searchParams = Astro.url.searchParams;
+const supplierIds = searchParams.getAll('supplier');
+const propositionIds = searchParams.getAll('proposition');
+const projectIds = searchParams.getAll('project');
+const status = searchParams.getAll('status');
+const startDate = searchParams.get('startDate');
+const endDate = searchParams.get('endDate');
+const agentIds = searchParams.getAll('agent');
+
+// Fetch all suppliers
+const { data: suppliers } = await supabase
+  .from('suppliers')
+  .select('id, name')
+  .order('name');
+
+// Fetch all agents
+const { data: agents } = await supabase
+  .from('profiles')
+  .select('id, first_name, last_name')
+  .eq('role', 'agent')
+  .order('first_name');
+
+// Fetch propositions if suppliers are selected
+const { data: propositions } = await supabase
+  .from('propositions')
+  .select(`
+    id,
+    name,
+    projects (
+      id,
+      name,
+      supplier_id
+    )
+  `)
+  .in('projects.supplier_id', supplierIds)
+  .order('name');
+
+// Fetch projects if suppliers are selected
+const { data: projects } = await supabase
+  .from('projects')
+  .select('id, name, supplier_id')
+  .in('supplier_id', supplierIds)
+  .order('name');
+
+// Build base query for sales
+let query = supabase
+  .from('sale_offers')
+  .select(`
+    *,
+    customers (
+      first_name,
+      last_name,
+      email
+    ),
+    suppliers (
+      name
+    ),
+    agents:profiles!sale_offers_agent_id_fkey (
+      first_name,
+      last_name
+    ),
+    sale_products (
+      proposition_id,
+      annual_amount,
+      monthly_amount
+    ),
+    sale_energy_details (
+      product_type,
+      annual_usage,
+      ean_code
+    ),
+    sale_commissions (
+      amount
+    )
+  `);
+
+// Apply filters
+if (supplierIds.length > 0) {
+  query = query.in('supplier_id', supplierIds);
+}
+
+if (propositionIds.length > 0) {
+  query = query.in('sale_products.proposition_id', propositionIds);
+}
+
+if (projectIds.length > 0) {
+  query = query.in('sale_products.proposition_id', propositionIds);
+}
+
+if (status.length > 0) {
+  query = query.in('status', status);
+}
+
+if (startDate) {
+  query = query.gte('created_at', startDate);
+}
+
+if (endDate) {
+  query = query.lte('created_at', endDate);
+}
+
+if (agentIds.length > 0) {
+  query = query.in('agent_id', agentIds);
+}
+
+// Execute query
+const { data: sales } = await query.order('created_at', { ascending: false });
+
+// Calculate totals
+const totalSales = sales?.length ?? 0;
+const totalRevenue = sales?.reduce((sum, sale) => {
+  return sum + (sale.sale_products?.reduce((pSum, product) => pSum + Number(product.annual_amount), 0) ?? 0);
+}, 0) ?? 0;
+const totalCommissions = sales?.reduce((sum, sale) => {
+  return sum + (sale.sale_commissions?.reduce((cSum, commission) => cSum + Number(commission.amount), 0) ?? 0);
+}, 0) ?? 0;
+---
+
+<AdminLayout title="Sales Overzicht">
+  <div class="space-y-6">
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Sales Overzicht</h1>
+        <p class="mt-2 text-sm text-gray-700">
+          Bekijk en filter alle sales in het systeem
+        </p>
+      </div>
+      <div class="mt-4 sm:mt-0">
+        <a
+          href="/admin/data/sales/new"
+          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500"
+        >
+          Nieuwe Sale
+        </a>
+      </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <form id="filterForm" class="space-y-6">
+          <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <!-- Supplier Filter -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Leverancier
+              </label>
+              <div class="mt-1">
+                <select
+                  name="supplier"
+                  multiple
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                >
+                  {suppliers?.map(supplier => (
+                    <option 
+                      value={supplier.id}
+                      selected={supplierIds.includes(supplier.id)}
+                    >
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <!-- Proposition Filter -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Propositie
+              </label>
+              <div class="mt-1">
+                <select
+                  name="proposition"
+                  multiple
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                >
+                  {propositions?.map(proposition => (
+                    <option 
+                      value={proposition.id}
+                      selected={propositionIds.includes(proposition.id)}
+                    >
+                      {proposition.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <!-- Project Filter -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Project
+              </label>
+              <div class="mt-1">
+                <select
+                  name="project"
+                  multiple
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                >
+                  {projects?.map(project => (
+                    <option 
+                      value={project.id}
+                      selected={projectIds.includes(project.id)}
+                    >
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Status
+              </label>
+              <div class="mt-1">
+                <select
+                  name="status"
+                  multiple
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                >
+                  <option value="draft" selected={status.includes('draft')}>Concept</option>
+                  <option value="sent" selected={status.includes('sent')}>Verzonden</option>
+                  <option value="accepted" selected={status.includes('accepted')}>Geaccepteerd</option>
+                  <option value="rejected" selected={status.includes('rejected')}>Afgewezen</option>
+                  <option value="expired" selected={status.includes('expired')}>Verlopen</option>
+                  <option value="processing" selected={status.includes('processing')}>In Verwerking</option>
+                  <option value="completed" selected={status.includes('completed')}>Afgerond</option>
+                  <option value="cancelled" selected={status.includes('cancelled')}>Geannuleerd</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Date Range -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Periode
+              </label>
+              <div class="mt-1 grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  name="startDate"
+                  value={startDate ?? ''}
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+                <input
+                  type="date"
+                  name="endDate"
+                  value={endDate ?? ''}
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <!-- Agent Filter -->
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Agent
+              </label>
+              <div class="mt-1">
+                <select
+                  name="agent"
+                  multiple
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                >
+                  {agents?.map(agent => (
+                    <option 
+                      value={agent.id}
+                      selected={agentIds.includes(agent.id)}
+                    >
+                      {agent.first_name} {agent.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              onclick="clearFilters()"
+              class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+            >
+              Filters Wissen
+            </button>
+            <button
+              type="submit"
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+            >
+              Filters Toepassen
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <dt class="text-sm font-medium text-gray-500 truncate">
+            Totaal Aantal Sales
+          </dt>
+          <dd class="mt-1 text-3xl font-semibold text-gray-900">
+            {totalSales}
+          </dd>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <dt class="text-sm font-medium text-gray-500 truncate">
+            Totale Omzet
+          </dt>
+          <dd class="mt-1 text-3xl font-semibold text-gray-900">
+            €{totalRevenue.toFixed(2)}
+          </dd>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <dt class="text-sm font-medium text-gray-500 truncate">
+            Totale Commissies
+          </dt>
+          <dd class="mt-1 text-3xl font-semibold text-gray-900">
+            €{totalCommissions.toFixed(2)}
+          </dd>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sales Table -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Datum
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Klant
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Leverancier
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Agent
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Omzet
+                </th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Commissie
+                </th>
+                <th scope="col" class="relative px-6 py-3">
+                  <span class="sr-only">Acties</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {sales?.map((sale) => {
+                const revenue = sale.sale_products?.reduce((sum, product) => 
+                  sum + Number(product.annual_amount), 0) ?? 0;
+                const commission = sale.sale_commissions?.reduce((sum, commission) => 
+                  sum + Number(commission.amount), 0) ?? 0;
+
+                return (
+                  <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(sale.created_at).toLocaleDateString()}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm font-medium text-gray-900">
+                        {sale.customers.first_name} {sale.customers.last_name}
+                      </div>
+                      <div class="text-sm text-gray-500">
+                        {sale.customers.email}
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {sale.suppliers.name}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {sale.agents.first_name} {sale.agents.last_name}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                        sale.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        sale.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                        sale.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        sale.status === 'expired' ? 'bg-gray-100 text-gray-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {sale.status}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      €{revenue.toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      €{commission.toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <a 
+                        href={`/admin/data/sales/${sale.id}`}
+                        class="text-orange-600 hover:text-orange-900"
+                      >
+                        Details
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  // Handle form submission
+  const form = document.getElementById('filterForm');
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    
+    // Build query string from form data
+    const formData = new FormData(e.target as HTMLFormElement);
+    const params = new URLSearchParams();
+    
+    // Handle multiple select values
+    formData.forEach((value, key) => {
+      if (value) {
+        params.append(key, value.toString());
+      }
+    });
+    
+    // Update URL with filters
+    window.location.search = params.toString();
+  });
+
+  // Clear filters
+  window.clearFilters = () => {
+    window.location.search = '';
+  };
+
+  // Handle supplier change to update propositions and projects
+  const supplierSelect = document.querySelector('select[name="supplier"]');
+  supplierSelect?.addEventListener('change', async (e) => {
+    const select = e.target as HTMLSelectElement;
+    const selectedSuppliers = Array.from(select.selectedOptions).map(option => option.value);
+    
+    // Update propositions
+    const { data: propositions } = await supabase
+      .from('propositions')
+      .select(`
+        id,
+        name,
+        projects (
+          id,
+          name,
+          supplier_id
+        )
+      `)
+      .in('projects.supplier_id', selectedSuppliers);
+    
+    const propositionSelect = document.querySelector('select[name="proposition"]');
+    if (propositionSelect) {
+      propositionSelect.innerHTML = propositions?.map(prop => 
+        `<option value="${prop.id}">${prop.name}</option>`
+      ).join('') || '';
+    }
+    
+    // Update projects
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('id, name')
+      .in('supplier_id', selectedSuppliers);
+    
+    const projectSelect = document.querySelector('select[name="project"]');
+    if (projectSelect) {
+      projectSelect.innerHTML = projects?.map(project => 
+        `<option value="${project.id}">${project.name}</option>`
+      ).join('') || '';
+    }
+  });
+</script>
+```

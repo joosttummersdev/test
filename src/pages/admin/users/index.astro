@@ -1,0 +1,484 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { supabase } from '../../../lib/supabaseClient';
+
+// Get all users with their profiles and settings
+const { data: users } = await supabase
+  .from('profiles')
+  .select(`
+    id,
+    first_name,
+    last_name,
+    email,
+    role,
+    created_at,
+    user_settings (
+      email_notifications,
+      sale_notifications
+    ),
+    user_suppliers (
+      supplier_id,
+      suppliers (
+        name
+      )
+    )
+  `)
+  .order('created_at', { ascending: false });
+
+// Get all suppliers for the dropdown
+const { data: suppliers } = await supabase
+  .from('suppliers')
+  .select('id, name')
+  .order('name');
+
+// Format date
+const formatDate = (date: string) => {
+  return new Date(date).toLocaleDateString('nl-NL', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+---
+
+<AdminLayout title="Gebruikersbeheer">
+  <div class="space-y-6">
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Gebruikersbeheer</h1>
+        <p class="mt-2 text-sm text-gray-700">
+          Beheer gebruikers en hun rechten
+        </p>
+      </div>
+      <div class="mt-4 sm:mt-0">
+        <button
+          type="button"
+          id="addUserBtn"
+          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-700"
+        >
+          Nieuwe Gebruiker
+        </button>
+      </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-300">
+            <thead>
+              <tr>
+                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Naam</th>
+                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Email</th>
+                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Rol</th>
+                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Leveranciers</th>
+                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Aangemaakt</th>
+                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Notificaties</th>
+                <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                  <span class="sr-only">Acties</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white">
+              {users?.map((user) => (
+                <tr>
+                  <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                    <div class="flex items-center">
+                      <div class="h-10 w-10 flex-shrink-0">
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                          <span class="text-sm font-medium leading-none text-gray-700">
+                            {user.first_name[0]}{user.last_name[0]}
+                          </span>
+                        </span>
+                      </div>
+                      <div class="ml-4">
+                        <div class="font-medium text-gray-900">{user.first_name} {user.last_name}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{user.email}</td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm">
+                    <span class={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                      user.role === 'admin' 
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {user.user_suppliers?.length || 0} toegewezen
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {formatDate(user.created_at)}
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm">
+                    <div class="space-y-1">
+                      <label class="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={user.user_settings?.[0]?.email_notifications}
+                          data-user-id={user.id}
+                          data-setting="email_notifications"
+                          class="toggle-setting rounded border-gray-300 text-orange-600 shadow-sm focus:border-orange-300 focus:ring focus:ring-orange-200 focus:ring-opacity-50"
+                        />
+                        <span class="ml-2 text-xs text-gray-600">Email</span>
+                      </label>
+                      <label class="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={user.user_settings?.[0]?.sale_notifications}
+                          data-user-id={user.id}
+                          data-setting="sale_notifications"
+                          class="toggle-setting rounded border-gray-300 text-orange-600 shadow-sm focus:border-orange-300 focus:ring focus:ring-orange-200 focus:ring-opacity-50"
+                        />
+                        <span class="ml-2 text-xs text-gray-600">Sales</span>
+                      </label>
+                    </div>
+                  </td>
+                  <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <button
+                      onclick={`editUser('${user.id}')`}
+                      class="text-orange-600 hover:text-orange-900 mr-4"
+                    >
+                      Bewerken
+                    </button>
+                    <button
+                      onclick={`editSuppliers('${user.id}')`}
+                      class="text-orange-600 hover:text-orange-900"
+                    >
+                      Leveranciers
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit User Modal -->
+  <div id="userModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+      <div class="px-6 py-4 border-b">
+        <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Nieuwe Gebruiker</h3>
+      </div>
+      
+      <form id="userForm" class="px-6 py-4">
+        <input type="hidden" id="userId" name="userId" />
+        <div class="space-y-4">
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            />
+          </div>
+          
+          <div>
+            <label for="firstName" class="block text-sm font-medium text-gray-700">Voornaam</label>
+            <input
+              type="text"
+              id="firstName"
+              name="firstName"
+              required
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            />
+          </div>
+          
+          <div>
+            <label for="lastName" class="block text-sm font-medium text-gray-700">Achternaam</label>
+            <input
+              type="text"
+              id="lastName"
+              name="lastName"
+              required
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            />
+          </div>
+          
+          <div>
+            <label for="role" class="block text-sm font-medium text-gray-700">Rol</label>
+            <select
+              id="role"
+              name="role"
+              required
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            >
+              <option value="agent">Agent</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <div id="passwordFields">
+            <label for="password" class="block text-sm font-medium text-gray-700">Wachtwoord</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              minlength="8"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+            />
+            <p class="mt-1 text-sm text-gray-500">Minimaal 8 karakters</p>
+          </div>
+        </div>
+      </form>
+      
+      <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+        <button
+          type="button"
+          onclick="hideModal('userModal')"
+          class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+        >
+          Annuleren
+        </button>
+        <button
+          type="submit"
+          form="userForm"
+          class="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md"
+        >
+          Opslaan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supplier Assignment Modal -->
+  <div id="supplierModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+      <div class="px-6 py-4 border-b">
+        <h3 class="text-lg font-medium text-gray-900">Leveranciers Toewijzen</h3>
+      </div>
+      
+      <form id="supplierForm" class="px-6 py-4">
+        <input type="hidden" id="supplierUserId" name="userId" />
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Selecteer Leveranciers</label>
+            <div class="space-y-2 max-h-48 overflow-y-auto">
+              {suppliers?.map((supplier) => (
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    name={`supplier-${supplier.id}`}
+                    value={supplier.id}
+                    class="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                  />
+                  <span class="text-sm text-gray-700">{supplier.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      </form>
+      
+      <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+        <button
+          type="button"
+          onclick="hideModal('supplierModal')"
+          class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+        >
+          Annuleren
+        </button>
+        <button
+          type="submit"
+          form="supplierForm"
+          class="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md"
+        >
+          Opslaan
+        </button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import { supabase } from '../../../lib/supabaseClient';
+
+  // Handle setting toggles
+  document.querySelectorAll('.toggle-setting').forEach(toggle => {
+    toggle.addEventListener('change', async (e) => {
+      const checkbox = e.target as HTMLInputElement;
+      const userId = checkbox.dataset.userId;
+      const setting = checkbox.dataset.setting;
+      const value = checkbox.checked;
+
+      try {
+        const { error } = await supabase
+          .from('user_settings')
+          .upsert({
+            user_id: userId,
+            [setting!]: value
+          });
+
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error updating setting:', error);
+        checkbox.checked = !value; // Revert on error
+        alert('Er is een fout opgetreden bij het bijwerken van de instelling');
+      }
+    });
+  });
+
+  // Modal handling
+  function hideModal(modalId: string) {
+    document.getElementById(modalId)?.classList.add('hidden');
+  }
+
+  // Add user button
+  document.getElementById('addUserBtn')?.addEventListener('click', () => {
+    document.getElementById('modalTitle')!.textContent = 'Nieuwe Gebruiker';
+    document.getElementById('userId')!.value = '';
+    document.getElementById('passwordFields')!.style.display = 'block';
+    (document.getElementById('userForm') as HTMLFormElement).reset();
+    document.getElementById('userModal')?.classList.remove('hidden');
+  });
+
+  // Edit user
+  window.editUser = async function(userId: string) {
+    document.getElementById('modalTitle')!.textContent = 'Gebruiker Bewerken';
+    document.getElementById('userId')!.value = userId;
+    document.getElementById('passwordFields')!.style.display = 'none';
+    
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching user:', error);
+      alert(error.message);
+      return;
+    }
+      
+    if (user) {
+      (document.getElementById('email') as HTMLInputElement).value = user.email;
+      (document.getElementById('firstName') as HTMLInputElement).value = user.first_name;
+      (document.getElementById('lastName') as HTMLInputElement).value = user.last_name;
+      (document.getElementById('role') as HTMLSelectElement).value = user.role;
+      
+      document.getElementById('userModal')?.classList.remove('hidden');
+    }
+  };
+
+  // Edit suppliers
+  window.editSuppliers = async function(userId: string) {
+    document.getElementById('supplierUserId')!.value = userId;
+
+    // Get current supplier assignments
+    const { data: assignments } = await supabase
+      .from('user_suppliers')
+      .select('supplier_id')
+      .eq('user_id', userId);
+
+    // Check the appropriate boxes
+    const assignedSuppliers = assignments?.map(a => a.supplier_id) || [];
+    document.querySelectorAll('#supplierForm input[type="checkbox"]').forEach((checkbox: HTMLInputElement) => {
+      checkbox.checked = assignedSuppliers.includes(checkbox.value);
+    });
+
+    document.getElementById('supplierModal')?.classList.remove('hidden');
+  };
+
+  // Handle user form submission
+  document.getElementById('userForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const userId = formData.get('userId')?.toString();
+    
+    try {
+      if (userId) {
+        // Update existing user
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            email: formData.get('email'),
+            first_name: formData.get('firstName'),
+            last_name: formData.get('lastName'),
+            role: formData.get('role')
+          })
+          .eq('id', userId);
+
+        if (error) throw error;
+      } else {
+        // Create new user
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: formData.get('email') as string,
+          password: formData.get('password') as string,
+          options: {
+            data: {
+              first_name: formData.get('firstName'),
+              last_name: formData.get('lastName'),
+              role: formData.get('role')
+            }
+          }
+        });
+
+        if (signUpError) throw signUpError;
+      }
+
+      hideModal('userModal');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error saving user:', error);
+      alert('Er is een fout opgetreden bij het opslaan van de gebruiker');
+    }
+  });
+
+  // Handle supplier form submission
+  document.getElementById('supplierForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const userId = formData.get('userId');
+    
+    try {
+      // Get selected suppliers
+      const selectedSuppliers = Array.from(formData.entries())
+        .filter(([key]) => key.startsWith('supplier-'))
+        .map(([_, value]) => value);
+
+      // Delete existing assignments
+      await supabase
+        .from('user_suppliers')
+        .delete()
+        .eq('user_id', userId);
+
+      // Create new assignments
+      if (selectedSuppliers.length > 0) {
+        const { error } = await supabase
+          .from('user_suppliers')
+          .insert(
+            selectedSuppliers.map(supplierId => ({
+              user_id: userId,
+              supplier_id: supplierId
+            }))
+          );
+
+        if (error) throw error;
+      }
+
+      hideModal('supplierModal');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error saving supplier assignments:', error);
+      alert('Er is een fout opgetreden bij het opslaan van de leveranciers');
+    }
+  });
+
+  // Close modals on outside click
+  ['userModal', 'supplierModal'].forEach(modalId => {
+    document.getElementById(modalId)?.addEventListener('click', (e) => {
+      if (e.target === document.getElementById(modalId)) {
+        hideModal(modalId);
+      }
+    });
+  });
+</script>

@@ -1,0 +1,223 @@
+---
+import AdminLayout from '../../../../../../layouts/AdminLayout.astro';
+import { supabaseAdmin } from '../../../../../../lib/supabaseClient';
+
+export async function getStaticPaths() {
+  const { data: propositions } = await supabaseAdmin
+    .from('propositions')
+    .select(`
+      id,
+      project_id
+    `);
+
+  return propositions?.map(prop => ({
+    params: { 
+      id: prop.project_id,
+      propositionId: prop.id
+    }
+  })) || [];
+}
+
+const { propositionId } = Astro.params;
+
+// Get proposition details
+const { data: proposition } = await supabaseAdmin
+  .from('propositions')
+  .select(`
+    *,
+    projects (
+      name,
+      suppliers (
+        name
+      )
+    )
+  `)
+  .eq('id', propositionId)
+  .single();
+
+// Get commission tiers
+const { data: tiers } = await supabaseAdmin
+  .from('proposition_tiers')
+  .select('*')
+  .eq('proposition_id', propositionId)
+  .order('min_usage');
+
+// Get fees
+const { data: fees } = await supabaseAdmin
+  .from('proposition_fees')
+  .select('*')
+  .eq('proposition_id', propositionId);
+
+// Group tiers by product type
+const electricityTiers = tiers?.filter(t => t.product_type === 'electricity') || [];
+const gasTiers = tiers?.filter(t => t.product_type === 'gas') || [];
+
+// Group fees by product type
+const electricityFees = fees?.filter(f => f.product_type === 'electricity') || [];
+const gasFees = fees?.filter(f => f.product_type === 'gas') || [];
+---
+
+<AdminLayout title={proposition?.name || 'Propositie Details'}>
+  <div class="space-y-6">
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">
+          {proposition?.name}
+        </h1>
+        <p class="mt-2 text-sm text-gray-700">
+          {proposition?.projects?.suppliers?.name} - {proposition?.projects?.name}
+        </p>
+      </div>
+      <div class="mt-4 sm:mt-0">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+          onclick="toggleEditMode()"
+        >
+          Bewerken
+        </button>
+      </div>
+    </div>
+
+    <!-- Commission Tiers -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h2 class="text-lg font-semibold mb-6">Commissie Staffels</h2>
+        
+        <!-- Electricity Tiers -->
+        {electricityTiers.length > 0 && (
+          <div class="mb-8">
+            <h3 class="text-sm font-medium text-gray-900 mb-4">Elektriciteit</h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-300">
+                <thead>
+                  <tr>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Van (kWh)</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tot (kWh)</th>
+                    <th scope="col" class="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">Commissie</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  {electricityTiers.map((tier) => (
+                    <tr>
+                      <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
+                        {tier.min_usage.toLocaleString()}
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {tier.max_usage ? tier.max_usage.toLocaleString() : '∞'}
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">
+                        {proposition?.name.includes('Opslag 2') ? 
+                          `€${tier.commission_amount.toFixed(3)}/kWh` :
+                          `€${tier.commission_amount.toFixed(2)}`
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <!-- Gas Tiers -->
+        {gasTiers.length > 0 && (
+          <div>
+            <h3 class="text-sm font-medium text-gray-900 mb-4">Gas</h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-300">
+                <thead>
+                  <tr>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Van (m³)</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tot (m³)</th>
+                    <th scope="col" class="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">Commissie</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  {gasTiers.map((tier) => (
+                    <tr>
+                      <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
+                        {tier.min_usage.toLocaleString()}
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {tier.max_usage ? tier.max_usage.toLocaleString() : '∞'}
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">
+                        {proposition?.name.includes('Opslag 2') ? 
+                          `€${tier.commission_amount.toFixed(3)}/m³` :
+                          `€${tier.commission_amount.toFixed(2)}`
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Fixed Fees -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h2 class="text-lg font-semibold mb-6">Vaste Vergoedingen</h2>
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <!-- Electricity Fees -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-900 mb-4">Elektriciteit</h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-300">
+                <thead>
+                  <tr>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Type</th>
+                    <th scope="col" class="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">Bedrag</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  {electricityFees.map((fee) => (
+                    <tr>
+                      <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
+                        {fee.fee_type === 'fixed' ? 'Vast' : 'Variabel'}
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">
+                        €{fee.amount.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Gas Fees -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-900 mb-4">Gas</h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-300">
+                <thead>
+                  <tr>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Type</th>
+                    <th scope="col" class="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">Bedrag</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  {gasFees.map((fee) => (
+                    <tr>
+                      <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
+                        {fee.fee_type === 'fixed' ? 'Vast' : 'Variabel'}
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">
+                        €{fee.amount.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

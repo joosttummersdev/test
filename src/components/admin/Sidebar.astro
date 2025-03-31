@@ -1,0 +1,44 @@
+---
+const menuItems = [
+  { href: '/admin/suppliers', label: 'Leveranciers' },
+  { href: '/admin/users', label: 'Gebruikers' },
+  { href: '/admin/sales', label: 'Sales' },
+  { href: '/admin/customers', label: 'Klanten' },
+  { href: '/admin/settings', label: 'Instellingen' },
+];
+
+// Get the current URL path
+const currentPath = Astro.url.pathname;
+---
+
+<aside class="w-64 bg-white shadow h-screen">
+  <nav class="mt-8">
+    <ul class="space-y-2">
+      {menuItems.map(item => (
+        <li>
+          <a
+            href={item.href}
+            class={`block px-4 py-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 ${
+              currentPath.startsWith(item.href) ? 'bg-gray-100 text-gray-900 font-medium' : ''
+            }`}
+          >
+            {item.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</aside>
+
+<script>
+  // Prevent default link behavior and handle navigation manually
+  document.querySelectorAll('aside a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = link.getAttribute('href');
+      if (href) {
+        window.location.href = href;
+      }
+    });
+  });
+</script>

@@ -1,0 +1,155 @@
+---
+import { getUserProfile } from '../../lib/supabaseClient.ts';
+import UserMenu from '../UserMenu';
+
+// Get user profile
+const { profile } = await getUserProfile() || {};
+
+const menuItems = [
+  { 
+    href: '/admin/suppliers', 
+    label: 'Leveranciers',
+    icon: `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+    </svg>`
+  },
+  { 
+    href: '/admin/users', 
+    label: 'Gebruikers',
+    icon: `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+    </svg>`
+  },
+  { 
+    href: '/admin/sales', 
+    label: 'Sales',
+    icon: `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+    </svg>`
+  },
+  { 
+    href: '/admin/data', 
+    label: 'Data',
+    icon: `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>`
+  },
+  { 
+    href: '/admin/data/upload', 
+    label: 'Upload',
+    icon: `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>`
+  },
+  { 
+    href: '/admin/scraper', 
+    label: 'Scraper',
+    icon: `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242z"/>
+    </svg>`
+  },
+  { 
+    href: '/admin/settings', 
+    label: 'Instellingen',
+    icon: `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+    </svg>`
+  }
+];
+
+// Get the current URL path
+const currentPath = Astro.url.pathname;
+
+// Logo URL
+const logoUrl = "https://jvurixmxrkgyzeqxwcvs.supabase.co/storage/v1/object/public/logos//79f0f7dc-4b19-470d-bda5-97186e5f774e%20(1).jpg";
+---
+
+<header class="fixed top-0 left-0 right-0 bg-white shadow z-50">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-20">
+      <!-- Logo -->
+      <div class="flex">
+        <div class="flex-shrink-0 flex items-center">
+          <img src={logoUrl} alt="Logo" class="h-16 w-auto" />
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+        {menuItems.map(item => (
+          <a
+            href={item.href}
+            class={`inline-flex items-center px-3 py-2 text-sm font-medium ${
+              currentPath.startsWith(item.href)
+                ? 'border-b-2 border-orange-500 text-gray-900'
+                : 'border-b-2 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            <Fragment set:html={item.icon} />
+            {item.label}
+          </a>
+        ))}
+      </div>
+
+      <!-- User menu -->
+      <div class="flex items-center">
+        {profile && (
+          <UserMenu client:load firstName={profile.first_name} />
+        )}
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile menu -->
+  <div class="sm:hidden" id="mobile-menu">
+    <div class="pt-2 pb-3 space-y-1">
+      {menuItems.map(item => (
+        <a
+          href={item.href}
+          class={`flex items-center pl-3 pr-4 py-2 text-base font-medium ${
+            currentPath.startsWith(item.href)
+              ? 'bg-orange-50 border-l-4 border-orange-500 text-orange-700'
+              : 'border-l-4 border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
+          }`}
+        >
+          <Fragment set:html={item.icon} />
+          {item.label}
+        </a>
+      ))}
+    </div>
+  </div>
+</header>
+
+<!-- Spacer to prevent content from going under fixed header -->
+<div class="h-20"></div>
+
+<script>
+  // Handle mobile menu toggle
+  const mobileMenu = document.getElementById('mobile-menu');
+  let isMenuOpen = false;
+
+  function toggleMenu() {
+    isMenuOpen = !isMenuOpen;
+    if (mobileMenu) {
+      mobileMenu.style.display = isMenuOpen ? 'block' : 'none';
+    }
+  }
+
+  // Close menu on navigation
+  document.querySelectorAll('#mobile-menu a').forEach(link => {
+    link.addEventListener('click', () => {
+      isMenuOpen = false;
+      if (mobileMenu) {
+        mobileMenu.style.display = 'none';
+      }
+    });
+  });
+</script>
+
+<style>
+  /* Add smooth transition for hover effects */
+  a {
+    transition: all 0.2s ease-in-out;
+  }
+</style>

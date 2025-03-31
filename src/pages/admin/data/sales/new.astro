@@ -1,0 +1,641 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { supabase } from '../../../../lib/supabaseClient';
+
+// Get all suppliers
+const { data: suppliers } = await supabase
+  .from('suppliers')
+  .select('*')
+  .order('name');
+
+// Get all agents
+const { data: agents } = await supabase
+  .from('profiles')
+  .select('id, first_name, last_name')
+  .eq('role', 'agent')
+  .order('first_name');
+---
+
+<AdminLayout title="Nieuwe Sale">
+  <div class="space-y-6">
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Nieuwe Sale</h1>
+        <p class="mt-2 text-sm text-gray-700">
+          Voer een nieuwe sale in het systeem in
+        </p>
+      </div>
+    </div>
+
+    <form id="saleForm" class="space-y-8">
+      <!-- Basic Info -->
+      <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">Basis Informatie</h3>
+          <div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <div class="sm:col-span-3">
+              <label for="offerId" class="block text-sm font-medium text-gray-700">
+                Offerte ID
+              </label>
+              <div class="mt-1">
+                <input
+                  type="text"
+                  name="offerId"
+                  id="offerId"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="validUntil" class="block text-sm font-medium text-gray-700">
+                Geldig tot
+              </label>
+              <div class="mt-1">
+                <input
+                  type="date"
+                  name="validUntil"
+                  id="validUntil"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="supplierId" class="block text-sm font-medium text-gray-700">
+                Leverancier
+              </label>
+              <div class="mt-1">
+                <select
+                  id="supplierId"
+                  name="supplierId"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                >
+                  <option value="">Selecteer leverancier</option>
+                  {suppliers?.map(supplier => (
+                    <option value={supplier.id}>{supplier.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="agentId" class="block text-sm font-medium text-gray-700">
+                Agent
+              </label>
+              <div class="mt-1">
+                <select
+                  id="agentId"
+                  name="agentId"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                >
+                  <option value="">Selecteer agent</option>
+                  {agents?.map(agent => (
+                    <option value={agent.id}>{agent.first_name} {agent.last_name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Customer Info -->
+      <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">Klant Informatie</h3>
+          <div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <div class="sm:col-span-3">
+              <label for="firstName" class="block text-sm font-medium text-gray-700">
+                Voornaam
+              </label>
+              <div class="mt-1">
+                <input
+                  type="text"
+                  name="firstName"
+                  id="firstName"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="lastName" class="block text-sm font-medium text-gray-700">
+                Achternaam
+              </label>
+              <div class="mt-1">
+                <input
+                  type="text"
+                  name="lastName"
+                  id="lastName"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="email" class="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <div class="mt-1">
+                <input
+                  type="email"
+                  name="email"
+                  id="email"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="phone" class="block text-sm font-medium text-gray-700">
+                Telefoon
+              </label>
+              <div class="mt-1">
+                <input
+                  type="tel"
+                  name="phone"
+                  id="phone"
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-4">
+              <label for="street" class="block text-sm font-medium text-gray-700">
+                Straat
+              </label>
+              <div class="mt-1">
+                <input
+                  type="text"
+                  name="street"
+                  id="street"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-1">
+              <label for="houseNumber" class="block text-sm font-medium text-gray-700">
+                Huisnummer
+              </label>
+              <div class="mt-1">
+                <input
+                  type="text"
+                  name="houseNumber"
+                  id="houseNumber"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-1">
+              <label for="postalCode" class="block text-sm font-medium text-gray-700">
+                Postcode
+              </label>
+              <div class="mt-1">
+                <input
+                  type="text"
+                  name="postalCode"
+                  id="postalCode"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Energy Details -->
+      <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">Energie Details</h3>
+          
+          <!-- Electricity -->
+          <div class="mt-6 space-y-6">
+            <div class="relative flex items-start">
+              <div class="flex h-5 items-center">
+                <input
+                  id="hasElectricity"
+                  name="hasElectricity"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                />
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="hasElectricity" class="font-medium text-gray-700">Elektriciteit</label>
+              </div>
+            </div>
+
+            <div id="electricityDetails" class="pl-7 space-y-6 hidden">
+              <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                <div class="sm:col-span-3">
+                  <label for="electricityEAN" class="block text-sm font-medium text-gray-700">
+                    EAN Code
+                  </label>
+                  <div class="mt-1">
+                    <input
+                      type="text"
+                      name="electricityEAN"
+                      id="electricityEAN"
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div class="sm:col-span-3">
+                  <label for="electricityUsage" class="block text-sm font-medium text-gray-700">
+                    Jaarverbruik (kWh)
+                  </label>
+                  <div class="mt-1">
+                    <input
+                      type="number"
+                      name="electricityUsage"
+                      id="electricityUsage"
+                      min="0"
+                      step="1"
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div class="sm:col-span-3">
+                  <label for="electricitySupplier" class="block text-sm font-medium text-gray-700">
+                    Huidige Leverancier
+                  </label>
+                  <div class="mt-1">
+                    <input
+                      type="text"
+                      name="electricitySupplier"
+                      id="electricitySupplier"
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div class="sm:col-span-3">
+                  <label for="electricitySwitchType" class="block text-sm font-medium text-gray-700">
+                    Type Overstap
+                  </label>
+                  <div class="mt-1">
+                    <select
+                      id="electricitySwitchType"
+                      name="electricitySwitchType"
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    >
+                      <option value="new">Nieuwe Aansluiting</option>
+                      <option value="switch">Overstap</option>
+                      <option value="renewal">Verlenging</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="sm:col-span-3">
+                  <div class="relative flex items-start">
+                    <div class="flex h-5 items-center">
+                      <input
+                        id="hasSolar"
+                        name="hasSolar"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div class="ml-3 text-sm">
+                      <label for="hasSolar" class="font-medium text-gray-700">
+                        Zonnepanelen
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="sm:col-span-3">
+                  <div class="relative flex items-start">
+                    <div class="flex h-5 items-center">
+                      <input
+                        id="isDualMeter"
+                        name="isDualMeter"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div class="ml-3 text-sm">
+                      <label for="isDualMeter" class="font-medium text-gray-700">
+                        Dubbele Meter
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gas -->
+          <div class="mt-6 space-y-6">
+            <div class="relative flex items-start">
+              <div class="flex h-5 items-center">
+                <input
+                  id="hasGas"
+                  name="hasGas"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                />
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="hasGas" class="font-medium text-gray-700">Gas</label>
+              </div>
+            </div>
+
+            <div id="gasDetails" class="pl-7 space-y-6 hidden">
+              <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                <div class="sm:col-span-3">
+                  <label for="gasEAN" class="block text-sm font-medium text-gray-700">
+                    EAN Code
+                  </label>
+                  <div class="mt-1">
+                    <input
+                      type="text"
+                      name="gasEAN"
+                      id="gasEAN"
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div class="sm:col-span-3">
+                  <label for="gasUsage" class="block text-sm font-medium text-gray-700">
+                    Jaarverbruik (m³)
+                  </label>
+                  <div class="mt-1">
+                    <input
+                      type="number"
+                      name="gasUsage"
+                      id="gasUsage"
+                      min="0"
+                      step="1"
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div class="sm:col-span-3">
+                  <label for="gasSupplier" class="block text-sm font-medium text-gray-700">
+                    Huidige Leverancier
+                  </label>
+                  <div class="mt-1">
+                    <input
+                      type="text"
+                      name="gasSupplier"
+                      id="gasSupplier"
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div class="sm:col-span-3">
+                  <label for="gasSwitchType" class="block text-sm font-medium text-gray-700">
+                    Type Overstap
+                  </label>
+                  <div class="mt-1">
+                    <select
+                      id="gasSwitchType"
+                      name="gasSwitchType"
+                      class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    >
+                      <option value="new">Nieuwe Aansluiting</option>
+                      <option value="switch">Overstap</option>
+                      <option value="renewal">Verlenging</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contract Details -->
+      <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">Contract Details</h3>
+          <div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <div class="sm:col-span-3">
+              <label for="contractDuration" class="block text-sm font-medium text-gray-700">
+                Looptijd
+              </label>
+              <div class="mt-1">
+                <select
+                  id="contractDuration"
+                  name="contractDuration"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                >
+                  <option value="1">1 jaar</option>
+                  <option value="3">3 jaar</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="startDate" class="block text-sm font-medium text-gray-700">
+                Startdatum
+              </label>
+              <div class="mt-1">
+                <input
+                  type="date"
+                  name="startDate"
+                  id="startDate"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="paymentMethod" class="block text-sm font-medium text-gray-700">
+                Betaalwijze
+              </label>
+              <div class="mt-1">
+                <select
+                  id="paymentMethod"
+                  name="paymentMethod"
+                  required
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                >
+                  <option value="automatic">Automatische Incasso</option>
+                  <option value="transfer">Overboeking</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="sm:col-span-3">
+              <label for="iban" class="block text-sm font-medium text-gray-700">
+                IBAN
+              </label>
+              <div class="mt-1">
+                <input
+                  type="text"
+                  name="iban"
+                  id="iban"
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="flex justify-end">
+        <button
+          type="submit"
+          class="ml-3 inline-flex justify-center rounded-md border border-transparent bg-orange-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+        >
+          Sale Opslaan
+        </button>
+      </div>
+    </form>
+  </div>
+</AdminLayout>
+
+<script>
+  import { supabase } from '../../../../lib/supabaseClient';
+
+  // Get form elements
+  const form = document.getElementById('saleForm');
+  const hasElectricity = document.getElementById('hasElectricity');
+  const hasGas = document.getElementById('hasGas');
+  const electricityDetails = document.getElementById('electricityDetails');
+  const gasDetails = document.getElementById('gasDetails');
+
+  // Toggle energy type sections
+  hasElectricity?.addEventListener('change', (e) => {
+    const checked = (e.target as HTMLInputElement).checked;
+    electricityDetails?.classList.toggle('hidden', !checked);
+    
+    // Update required fields
+    const fields = electricityDetails?.querySelectorAll('input, select');
+    fields?.forEach(field => {
+      if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+        field.required = checked;
+      }
+    });
+  });
+
+  hasGas?.addEventListener('change', (e) => {
+    const checked = (e.target as HTMLInputElement).checked;
+    gasDetails?.classList.toggle('hidden', !checked);
+    
+    // Update required fields
+    const fields = gasDetails?.querySelectorAll('input, select');
+    fields?.forEach(field => {
+      if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+        field.required = checked;
+      }
+    });
+  });
+
+  // Handle form submission
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    try {
+      const formData = new FormData(e.target as HTMLFormElement);
+      
+      // Create or get customer
+      const { data: customer, error: customerError } = await supabase
+        .from('customers')
+        .upsert({
+          first_name: formData.get('firstName'),
+          last_name: formData.get('lastName'),
+          email: formData.get('email'),
+          phone: formData.get('phone'),
+          street: formData.get('street'),
+          house_number: formData.get('houseNumber'),
+          postal_code: formData.get('postalCode')
+        })
+        .select()
+        .single();
+      
+      if (customerError) throw customerError;
+      
+      // Create sale offer
+      const { data: offer, error: offerError } = await supabase
+        .from('sale_offers')
+        .insert({
+          offer_id: formData.get('offerId'),
+          customer_id: customer.id,
+          agent_id: formData.get('agentId'),
+          supplier_id: formData.get('supplierId'),
+          valid_until: formData.get('validUntil'),
+          status: 'draft'
+        })
+        .select()
+        .single();
+      
+      if (offerError) throw offerError;
+      
+      // Add energy details
+      const energyDetails = [];
+      
+      if (formData.get('hasElectricity') === 'on') {
+        energyDetails.push({
+          sale_offer_id: offer.id,
+          product_type: 'electricity',
+          ean_code: formData.get('electricityEAN'),
+          annual_usage: formData.get('electricityUsage'),
+          has_solar: formData.get('hasSolar') === 'on',
+          is_dual_meter: formData.get('isDualMeter') === 'on',
+          current_supplier: formData.get('electricitySupplier'),
+          switch_type: formData.get('electricitySwitchType')
+        });
+      }
+      
+      if (formData.get('hasGas') === 'on') {
+        energyDetails.push({
+          sale_offer_id: offer.id,
+          product_type: 'gas',
+          ean_code: formData.get('gasEAN'),
+          annual_usage: formData.get('gasUsage'),
+          current_supplier: formData.get('gasSupplier'),
+          switch_type: formData.get('gasSwitchType')
+        });
+      }
+      
+      if (energyDetails.length > 0) {
+        const { error: energyError } = await supabase
+          .from('sale_energy_details')
+          .insert(energyDetails);
+        
+        if (energyError) throw energyError;
+      }
+      
+      // Add initial status
+      const { error: statusError } = await supabase
+        .from('sale_statuses')
+        .insert({
+          sale_offer_id: offer.id,
+          status: 'draft',
+          created_by: formData.get('agentId')
+        });
+      
+      if (statusError) throw statusError;
+      
+      // Redirect to sale details page
+      window.location.href = `/admin/data/sales/${offer.id}`;
+    } catch (error) {
+      console.error('Error saving sale:', error);
+      alert('Er is een fout opgetreden bij het opslaan van de sale');
+    }
+  });
+</script>
+```

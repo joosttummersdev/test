@@ -1,0 +1,483 @@
+---
+import AdminLayout from '../../../../../layouts/AdminLayout.astro';
+import { supabaseAdmin } from '../../../../../lib/supabaseClient';
+
+export async function getStaticPaths() {
+  const { data: projects } = await supabaseAdmin
+    .from('projects')
+    .select(`
+      id,
+      name,
+      type,
+      description,
+      supplier_id,
+      suppliers (
+        id,
+        name
+      )
+    `);
+
+  return projects?.map(project => ({
+    params: { id: project.id },
+    props: { project }
+  })) || [];
+}
+
+const { id } = Astro.params;
+const { project } = Astro.props;
+
+// Get propositions for this project with all related data
+const { data: propositions } = await supabaseAdmin
+  .from('propositions')
+  .select(`
+    id,
+    name,
+    commission,
+    active,
+    proposition_tiers (
+      id,
+      product_type,
+      min_usage,
+      max_usage,
+      commission_amount
+    ),
+    proposition_fees (
+      id,
+      fee_type,
+      product_type,
+      amount
+    )
+  `)
+  .eq('project_id', id)
+  .order('name');
+
+// Group propositions by type
+const opslag1Props = propositions?.filter(p => p.name.includes('Opslag 1')) || [];
+const opslag2Props = propositions?.filter(p => p.name.includes('Opslag 2')) || [];
+---
+
+<AdminLayout title={project.name}>
+  <div class="space-y-6">
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">{project.name}</h1>
+        <p class="mt-2 text-sm text-gray-700">
+          {project.suppliers.name} - {project.type === 'business' ? 'Zakelijk' : 'Particulier'}
+        </p>
+      </div>
+      <div class="mt-4 sm:mt-0">
+        <button
+          type="button"
+          onclick="editProject()"
+          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500"
+        >
+          Project Bewerken
+        </button>
+      </div>
+    </div>
+
+    <!-- Commission Calculator -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-6 py-5">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Commissie Calculator</h3>
+        <form id="calculatorForm" class="space-y-6">
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <label for="contractDuration" class="block text-sm font-medium text-gray-700">Contract Duur</label>
+              <select 
+                id="contractDuration"
+                name="contractDuration"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+              >
+                <option value="1">1 jaar</option>
+                <option value="3">3 jaar</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <label for="electricityUsage" class="block text-sm font-medium text-gray-700">Elektriciteit Verbruik (kWh/jaar)</label>
+              <input
+                type="number"
+                id="electricityUsage"
+                name="electricityUsage"
+                min="0"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+              />
+            </div>
+            <div>
+              <label for="gasUsage" class="block text-sm font-medium text-gray-700">Gas Verbruik (m³/jaar)</label>
+              <input
+                type="number"
+                id="gasUsage"
+                name="gasUsage"
+                min="0"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+              />
+            </div>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              class="inline-flex justify-center rounded-md bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500"
+            >
+              Bereken Commissie
+            </button>
+          </div>
+        </form>
+
+        <!-- Calculator Results -->
+        <div id="calculatorResults" class="mt-6 hidden">
+          <h4 class="text-sm font-medium text-gray-900 mb-4">Resultaten</h4>
+          
+          <!-- Electricity Results -->
+          <div class="mb-6">
+            <h5 class="text-sm font-medium text-gray-700 mb-3">Elektriciteit</h5>
+            <div class="bg-gray-50 rounded-lg p-4">
+              <div class="space-y-3">
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600">Verbruik</span>
+                  <span id="electricityUsageDisplay" class="font-medium">0 kWh</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600">Opslag 1 Commissie</span>
+                  <span id="electricityOpslag1Commission" class="font-medium">€0,00</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600">Opslag 2 Commissie</span>
+                  <span id="electricityOpslag2Commission" class="font-medium">€0,00</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600">Vaste Vergoeding</span>
+                  <span id="electricityFixedFee" class="font-medium">€0,00</span>
+                </div>
+                <div class="pt-2 border-t">
+                  <div class="flex justify-between text-sm font-medium">
+                    <span class="text-gray-900">Totaal Elektriciteit</span>
+                    <span id="electricityTotal" class="text-orange-600">€0,00</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gas Results -->
+          <div class="mb-6">
+            <h5 class="text-sm font-medium text-gray-700 mb-3">Gas</h5>
+            <div class="bg-gray-50 rounded-lg p-4">
+              <div class="space-y-3">
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600">Verbruik</span>
+                  <span id="gasUsageDisplay" class="font-medium">0 m³</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600">Opslag 1 Commissie</span>
+                  <span id="gasOpslag1Commission" class="font-medium">€0,00</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600">Opslag 2 Commissie</span>
+                  <span id="gasOpslag2Commission" class="font-medium">€0,00</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600">Vaste Vergoeding</span>
+                  <span id="gasFixedFee" class="font-medium">€0,00</span>
+                </div>
+                <div class="pt-2 border-t">
+                  <div class="flex justify-between text-sm font-medium">
+                    <span class="text-gray-900">Totaal Gas</span>
+                    <span id="gasTotal" class="text-orange-600">€0,00</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Total Results -->
+          <div class="bg-orange-50 rounded-lg p-4">
+            <div class="flex justify-between items-center">
+              <span class="text-sm font-medium text-orange-900">Totale Commissie</span>
+              <span id="totalCommission" class="text-lg font-semibold text-orange-700">€0,00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1 Year Propositions -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-6 py-5">
+        <h3 class="text-lg font-semibold text-gray-900 mb-6">1-jarige Proposities</h3>
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {opslag1Props
+            .filter(p => p.name.includes('1 jaar'))
+            .map(proposition => (
+              <div class="bg-white border rounded-lg shadow-sm">
+                <div class="p-6">
+                  <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-lg font-medium text-gray-900">{proposition.name}</h4>
+                    <span class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      proposition.active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {proposition.active ? 'Actief' : 'Inactief'}
+                    </span>
+                  </div>
+
+                  {/* Electricity Tiers */}
+                  <div class="mb-6">
+                    <h5 class="text-sm font-medium text-gray-700 mb-2">Elektriciteit Commissies</h5>
+                    <div class="space-y-2">
+                      {proposition.proposition_tiers
+                        ?.filter(tier => tier.product_type === 'electricity')
+                        .map(tier => (
+                          <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">
+                              {tier.min_usage.toLocaleString()} - {tier.max_usage ? tier.max_usage.toLocaleString() : '∞'} kWh
+                            </span>
+                            <span class="font-medium">€{tier.commission_amount.toFixed(2)}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+
+                  {/* Gas Tiers */}
+                  <div class="mb-6">
+                    <h5 class="text-sm font-medium text-gray-700 mb-2">Gas Commissies</h5>
+                    <div class="space-y-2">
+                      {proposition.proposition_tiers
+                        ?.filter(tier => tier.product_type === 'gas')
+                        .map(tier => (
+                          <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">
+                              {tier.min_usage.toLocaleString()} - {tier.max_usage ? tier.max_usage.toLocaleString() : '∞'} m³
+                            </span>
+                            <span class="font-medium">€{tier.commission_amount.toFixed(2)}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+
+                  {/* Fixed Fees */}
+                  <div>
+                    <h5 class="text-sm font-medium text-gray-700 mb-2">Vaste Vergoedingen</h5>
+                    <div class="space-y-2">
+                      {proposition.proposition_fees?.map(fee => (
+                        <div class="flex justify-between text-sm">
+                          <span class="text-gray-600">
+                            {fee.product_type === 'electricity' ? 'Elektriciteit' : 'Gas'}
+                          </span>
+                          <span class="font-medium">€{fee.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 Year Propositions -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-6 py-5">
+        <h3 class="text-lg font-semibold text-gray-900 mb-6">3-jarige Proposities</h3>
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {opslag1Props
+            .filter(p => p.name.includes('3 jaar'))
+            .map(proposition => (
+              <div class="bg-white border rounded-lg shadow-sm">
+                <div class="p-6">
+                  <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-lg font-medium text-gray-900">{proposition.name}</h4>
+                    <span class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      proposition.active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {proposition.active ? 'Actief' : 'Inactief'}
+                    </span>
+                  </div>
+
+                  {/* Electricity Tiers */}
+                  <div class="mb-6">
+                    <h5 class="text-sm font-medium text-gray-700 mb-2">Elektriciteit Commissies</h5>
+                    <div class="space-y-2">
+                      {proposition.proposition_tiers
+                        ?.filter(tier => tier.product_type === 'electricity')
+                        .map(tier => (
+                          <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">
+                              {tier.min_usage.toLocaleString()} - {tier.max_usage ? tier.max_usage.toLocaleString() : '∞'} kWh
+                            </span>
+                            <span class="font-medium">€{tier.commission_amount.toFixed(2)}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+
+                  {/* Gas Tiers */}
+                  <div class="mb-6">
+                    <h5 class="text-sm font-medium text-gray-700 mb-2">Gas Commissies</h5>
+                    <div class="space-y-2">
+                      {proposition.proposition_tiers
+                        ?.filter(tier => tier.product_type === 'gas')
+                        .map(tier => (
+                          <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">
+                              {tier.min_usage.toLocaleString()} - {tier.max_usage ? tier.max_usage.toLocaleString() : '∞'} m³
+                            </span>
+                            <span class="font-medium">€{tier.commission_amount.toFixed(2)}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+
+                  {/* Fixed Fees */}
+                  <div>
+                    <h5 class="text-sm font-medium text-gray-700 mb-2">Vaste Vergoedingen</h5>
+                    <div class="space-y-2">
+                      {proposition.proposition_fees?.map(fee => (
+                        <div class="flex justify-between text-sm">
+                          <span class="text-gray-600">
+                            {fee.product_type === 'electricity' ? 'Elektriciteit' : 'Gas'}
+                          </span>
+                          <span class="font-medium">€{fee.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ propositions, opslag1Props, opslag2Props }}>
+  // Get form elements
+  const form = document.getElementById('calculatorForm');
+  const results = document.getElementById('calculatorResults');
+  const durationSelect = document.getElementById('contractDuration');
+  const electricityInput = document.getElementById('electricityUsage');
+  const gasInput = document.getElementById('gasUsage');
+
+  // Format helpers
+  const formatCurrency = (amount) => 
+    `€${amount.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  
+  const formatNumber = (num, unit) => 
+    `${num.toLocaleString('nl-NL')} ${unit}`;
+
+  // Calculate Opslag 1 commission (fixed tiers)
+  function calculateOpslag1Commission(usage, productType, duration) {
+    const relevantProps = opslag1Props.filter(p => {
+      const isCorrectDuration = duration === 1 ? 
+        p.name.includes('1 jaar') : 
+        p.name.includes('3 jaar');
+      return isCorrectDuration;
+    });
+
+    if (!relevantProps.length) return 0;
+
+    const prop = relevantProps[0];
+    const tiers = prop.proposition_tiers
+      .filter(t => t.product_type === productType)
+      .sort((a, b) => a.min_usage - b.min_usage);
+
+    const tier = tiers.find(t => 
+      usage >= t.min_usage && 
+      (!t.max_usage || usage <= t.max_usage)
+    );
+
+    return tier ? tier.commission_amount : 0;
+  }
+
+  // Calculate Opslag 2 commission (per unit)
+  function calculateOpslag2Commission(usage, productType, duration) {
+    const relevantProps = opslag2Props.filter(p => {
+      const isCorrectDuration = duration === 1 ? 
+        p.name.includes('1 jaar') : 
+        p.name.includes('3 jaar');
+      return isCorrectDuration;
+    });
+
+    if (!relevantProps.length) return 0;
+
+    const prop = relevantProps[0];
+    const tier = prop.proposition_tiers
+      .find(t => t.product_type === productType);
+
+    return tier ? usage * tier.commission_amount : 0;
+  }
+
+  // Calculate fixed fees
+  function calculateFixedFees(productType, duration) {
+    const relevantProps = propositions.filter(p => {
+      const isCorrectDuration = duration === 1 ? 
+        p.name.includes('1 jaar') : 
+        p.name.includes('3 jaar');
+      return isCorrectDuration;
+    });
+
+    return relevantProps.reduce((total, prop) => {
+      const fee = prop.proposition_fees
+        ?.find(f => f.product_type === productType)?.amount ?? 0;
+      return total + fee;
+    }, 0);
+  }
+
+  // Handle form submission
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      // Get input values
+      const duration = parseInt(durationSelect.value);
+      const electricityUsage = parseFloat(electricityInput.value) || 0;
+      const gasUsage = parseFloat(gasInput.value) || 0;
+      
+      // Calculate electricity commissions
+      const electricityOpslag1 = calculateOpslag1Commission(electricityUsage, 'electricity', duration);
+      const electricityOpslag2 = calculateOpslag2Commission(electricityUsage, 'electricity', duration);
+      const electricityFees = calculateFixedFees('electricity', duration);
+      const electricityTotal = electricityOpslag1 + electricityOpslag2 + electricityFees;
+      
+      // Calculate gas commissions
+      const gasOpslag1 = calculateOpslag1Commission(gasUsage, 'gas', duration);
+      const gasOpslag2 = calculateOpslag2Commission(gasUsage, 'gas', duration);
+      const gasFees = calculateFixedFees('gas', duration);
+      const gasTotal = gasOpslag1 + gasOpslag2 + gasFees;
+      
+      // Update electricity display
+      document.getElementById('electricityUsageDisplay').textContent = formatNumber(electricityUsage, 'kWh');
+      document.getElementById('electricityOpslag1Commission').textContent = formatCurrency(electricityOpslag1);
+      document.getElementById('electricityOpslag2Commission').textContent = formatCurrency(electricityOpslag2);
+      document.getElementById('electricityFixedFee').textContent = formatCurrency(electricityFees);
+      document.getElementById('electricityTotal').textContent = formatCurrency(electricityTotal);
+      
+      // Update gas display
+      document.getElementById('gasUsageDisplay').textContent = formatNumber(gasUsage, 'm³');
+      document.getElementById('gasOpslag1Commission').textContent = formatCurrency(gasOpslag1);
+      document.getElementById('gasOpslag2Commission').textContent = formatCurrency(gasOpslag2);
+      document.getElementById('gasFixedFee').textContent = formatCurrency(gasFees);
+      document.getElementById('gasTotal').textContent = formatCurrency(gasTotal);
+      
+      // Update total
+      const totalCommission = electricityTotal + gasTotal;
+      document.getElementById('totalCommission').textContent = formatCurrency(totalCommission);
+      
+      // Show results
+      results?.classList.remove('hidden');
+    });
+  }
+</script>

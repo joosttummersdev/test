@@ -1,0 +1,26 @@
+---
+import Layout from '../layouts/login/Layout.astro';
+---
+
+<Layout title="Unauthorized Access">
+  <div class="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div class="text-center">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">
+            Geen Toegang
+          </h2>
+          <p class="text-gray-600 mb-6">
+            Je hebt geen toegang tot deze pagina.
+          </p>
+          <a
+            href="/login"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+          >
+            Terug naar Login
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

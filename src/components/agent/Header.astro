@@ -1,0 +1,120 @@
+---
+import { getUserProfile } from '../../lib/supabaseClient';
+import UserMenu from '../UserMenu';
+
+// Get user profile
+const { profile } = await getUserProfile() || {};
+
+// Logo URL
+const logoUrl = "https://jvurixmxrkgyzeqxwcvs.supabase.co/storage/v1/object/public/logos//79f0f7dc-4b19-470d-bda5-97186e5f774e%20(1).jpg";
+
+// Menu items for agents
+const menuItems = [
+  { 
+    href: '/agent/sales', 
+    label: 'Mijn Sales',
+    icon: `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+    </svg>`
+  },
+  { 
+    href: '/agent/commissions', 
+    label: 'Mijn Commissies',
+    icon: `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>`
+  }
+];
+
+// Get the current URL path
+const currentPath = Astro.url.pathname;
+---
+
+<header class="fixed top-0 left-0 right-0 bg-white shadow z-50">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-20">
+      <!-- Logo -->
+      <div class="flex">
+        <div class="flex-shrink-0 flex items-center">
+          <img src={logoUrl} alt="Logo" class="h-16 w-auto" />
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+        {menuItems.map(item => (
+          <a
+            href={item.href}
+            class={`inline-flex items-center px-3 py-2 text-sm font-medium ${
+              currentPath.startsWith(item.href)
+                ? 'border-b-2 border-blue-500 text-gray-900'
+                : 'border-b-2 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            <Fragment set:html={item.icon} />
+            {item.label}
+          </a>
+        ))}
+      </div>
+
+      <!-- User menu -->
+      <div class="flex items-center">
+        {profile && (
+          <UserMenu client:load firstName={profile.first_name} />
+        )}
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile menu -->
+  <div class="sm:hidden" id="mobile-menu">
+    <div class="pt-2 pb-3 space-y-1">
+      {menuItems.map(item => (
+        <a
+          href={item.href}
+          class={`flex items-center pl-3 pr-4 py-2 text-base font-medium ${
+            currentPath.startsWith(item.href)
+              ? 'bg-blue-50 border-l-4 border-blue-500 text-blue-700'
+              : 'border-l-4 border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
+          }`}
+        >
+          <Fragment set:html={item.icon} />
+          {item.label}
+        </a>
+      ))}
+    </div>
+  </div>
+</header>
+
+<!-- Spacer to prevent content from going under fixed header -->
+<div class="h-20"></div>
+
+<script>
+  // Handle mobile menu toggle
+  const mobileMenu = document.getElementById('mobile-menu');
+  let isMenuOpen = false;
+
+  function toggleMenu() {
+    isMenuOpen = !isMenuOpen;
+    if (mobileMenu) {
+      mobileMenu.style.display = isMenuOpen ? 'block' : 'none';
+    }
+  }
+
+  // Close menu on navigation
+  document.querySelectorAll('#mobile-menu a').forEach(link => {
+    link.addEventListener('click', () => {
+      isMenuOpen = false;
+      if (mobileMenu) {
+        mobileMenu.style.display = 'none';
+      }
+    });
+  });
+</script>
+
+<style>
+  /* Add smooth transition for hover effects */
+  a {
+    transition: all 0.2s ease-in-out;
+  }
+</style>

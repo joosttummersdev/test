@@ -1,0 +1,24 @@
+---
+import Layout from '../../layouts/login/Layout.astro';
+import { supabase } from '../../lib/supabaseClient';
+
+// Check if user is already logged in and redirect appropriately
+const { data: { session } } = await supabase.auth.getSession();
+
+if (session?.user) {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profile?.role === 'admin') {
+    return Astro.redirect('/admin');
+  } else if (profile?.role === 'agent') {
+    return Astro.redirect('/agent');
+  }
+}
+
+// If not logged in, redirect to home page with buttons
+return Astro.redirect('/');
+---

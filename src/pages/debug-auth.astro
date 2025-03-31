@@ -1,0 +1,182 @@
+---
+import { supabase } from '../lib/supabase';
+
+// Initialize debug info object
+let debugInfo = {
+  supabaseConfig: {
+    url: import.meta.env.VITE_SUPABASE_URL,
+    hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+    isInitialized: !!supabase?.auth
+  },
+  currentSession: null,
+  currentUser: null,
+  adminUser: null,
+  adminProfile: null,
+  authError: null,
+  profileError: null,
+  testLoginResult: null
+};
+
+try {
+  // Get current session
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (!sessionError) {
+    debugInfo.currentSession = session;
+  }
+
+  // Get current user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (!userError) {
+    debugInfo.currentUser = user;
+  }
+
+  // Check profiles table for admin
+  const { data: adminProfiles, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'admin');
+
+  debugInfo.profileError = profileError;
+  debugInfo.adminProfile = adminProfiles?.[0];
+
+  // Test login with admin credentials
+  const { data: loginTest, error: loginError } = await supabase.auth.signInWithPassword({
+    email: 'joost@yoobar.nl',
+    password: 'Admin123!'
+  });
+
+  debugInfo.testLoginResult = loginError ? 
+    { success: false, error: loginError.message } : 
+    { success: true, data: loginTest };
+
+} catch (error) {
+  debugInfo.error = error.message;
+}
+
+// Enable debug logging
+await supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Auth event:', event);
+  console.log('Session:', session);
+});
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auth Debug Info</title>
+  </head>
+  <body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md">
+      <h1 class="text-2xl font-bold mb-6">Authentication Debug Information</h1>
+
+      <!-- Supabase Configuration -->
+      <div class="mb-8 p-4 border rounded-lg">
+        <h2 class="text-xl font-semibold mb-3">Supabase Configuration</h2>
+        <ul class="space-y-2">
+          <li>
+            <span class="font-medium">URL:</span> 
+            {debugInfo.supabaseConfig.url || 'Not configured'}
+          </li>
+          <li>
+            <span class="font-medium">Anon Key:</span>
+            {debugInfo.supabaseConfig.hasAnonKey ? '✓ Configured' : '✗ Missing'}
+          </li>
+          <li>
+            <span class="font-medium">Client Initialized:</span>
+            {debugInfo.supabaseConfig.isInitialized ? '✓ Yes' : '✗ No'}
+          </li>
+        </ul>
+      </div>
+
+      <!-- Current Session -->
+      <div class="mb-8 p-4 border rounded-lg">
+        <h2 class="text-xl font-semibold mb-3">Current Session</h2>
+        {debugInfo.currentSession ? (
+          <div>
+            <p class="text-green-600">✓ Active session found</p>
+            <pre class="bg-gray-100 p-4 mt-2 rounded overflow-auto">
+              {JSON.stringify(debugInfo.currentSession, null, 2)}
+            </pre>
+          </div>
+        ) : (
+          <p class="text-yellow-600">No active session</p>
+        )}
+      </div>
+
+      <!-- Current User -->
+      <div class="mb-8 p-4 border rounded-lg">
+        <h2 class="text-xl font-semibold mb-3">Current User</h2>
+        {debugInfo.currentUser ? (
+          <div>
+            <p class="text-green-600">✓ User authenticated</p>
+            <pre class="bg-gray-100 p-4 mt-2 rounded overflow-auto">
+              {JSON.stringify(debugInfo.currentUser, null, 2)}
+            </pre>
+          </div>
+        ) : (
+          <p class="text-yellow-600">No authenticated user</p>
+        )}
+      </div>
+
+      <!-- Admin Profile -->
+      <div class="mb-8 p-4 border rounded-lg">
+        <h2 class="text-xl font-semibold mb-3">Admin Profile</h2>
+        {debugInfo.profileError ? (
+          <p class="text-red-600">Error checking profiles: {debugInfo.profileError.message}</p>
+        ) : debugInfo.adminProfile ? (
+          <div>
+            <p class="text-green-600">✓ Admin profile exists</p>
+            <pre class="bg-gray-100 p-4 mt-2 rounded overflow-auto">
+              {JSON.stringify(debugInfo.adminProfile, null, 2)}
+            </pre>
+          </div>
+        ) : (
+          <p class="text-red-600">✗ No admin profile found</p>
+        )}
+      </div>
+
+      <!-- Test Login -->
+      <div class="mb-8 p-4 border rounded-lg">
+        <h2 class="text-xl font-semibold mb-3">Login Test</h2>
+        {debugInfo.testLoginResult ? (
+          debugInfo.testLoginResult.success ? (
+            <div>
+              <p class="text-green-600">✓ Login test successful</p>
+              <pre class="bg-gray-100 p-4 mt-2 rounded overflow-auto">
+                {JSON.stringify(debugInfo.testLoginResult.data, null, 2)}
+              </pre>
+            </div>
+          ) : (
+            <p class="text-red-600">✗ Login test failed: {debugInfo.testLoginResult.error}</p>
+          )
+        ) : (
+          <p class="text-yellow-600">No login test performed</p>
+        )}
+      </div>
+
+      <!-- Debug Console -->
+      <div class="mb-8 p-4 border rounded-lg">
+        <h2 class="text-xl font-semibold mb-3">Debug Console</h2>
+        <p>Check your browser's console for detailed authentication events and session information.</p>
+      </div>
+
+      <div class="mt-8 space-x-4">
+        <a href="/setup-admin" class="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          Setup Admin Account
+        </a>
+        <a href="/" class="inline-block bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+          Back to Login
+        </a>
+      </div>
+    </div>
+
+    <script>
+      // Log auth state changes
+      window.supabase?.auth.onAuthStateChange((event, session) => {
+        console.log('Auth state changed:', { event, session });
+      });
+    </script>
+  </body>
+</html>

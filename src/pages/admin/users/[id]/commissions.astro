@@ -1,0 +1,204 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { supabaseAdmin } from '../../../../lib/supabaseClient';
+
+export async function getStaticPaths() {
+  // Fetch all users to generate static paths
+  const { data: users } = await supabaseAdmin
+    .from('profiles')
+    .select('id');
+
+  return users?.map(user => ({
+    params: { id: user.id },
+  })) || [];
+}
+
+const { id } = Astro.params;
+
+// Get user profile
+const { data: profile } = await supabaseAdmin
+  .from('profiles')
+  .select('*')
+  .eq('id', id)
+  .single();
+
+// Get all suppliers
+const { data: suppliers } = await supabaseAdmin
+  .from('suppliers')
+  .select('*')
+  .order('name');
+
+// Get existing commission rates
+const { data: commissions } = await supabaseAdmin
+  .from('agent_supplier_commissions')
+  .select('*')
+  .eq('agent_id', id);
+
+const commissionMap = new Map(
+  commissions?.map(c => [c.supplier_id, c.commission_rate]) ?? []
+);
+---
+
+<AdminLayout title={`Commissies - ${profile?.first_name} ${profile?.last_name}`}>
+  <div class="space-y-6">
+    <div class="sm:flex sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">
+          Commissies voor {profile?.first_name} {profile?.last_name}
+        </h1>
+        <p class="mt-2 text-sm text-gray-700">
+          Beheer commissiepercentages per leverancier
+        </p>
+      </div>
+    </div>
+
+    <!-- Commission Form -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <form id="commissionsForm" class="space-y-6">
+          <input type="hidden" name="agentId" value={id} />
+          
+          {suppliers?.map((supplier) => (
+            <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+              <div class="sm:col-span-4">
+                <label class="block text-sm font-medium text-gray-700">
+                  {supplier.name}
+                </label>
+                <div class="mt-1 flex rounded-md shadow-sm">
+                  <input
+                    type="number"
+                    name={`commission-${supplier.id}`}
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={commissionMap.get(supplier.id) ?? ''}
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                  />
+                  <span class="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-3 text-gray-500 sm:text-sm">
+                    %
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              class="ml-3 inline-flex justify-center rounded-md border border-transparent bg-orange-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+            >
+              Opslaan
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Sales Upload -->
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">
+          Upload Netto Sales
+        </h3>
+        <div class="mt-2 max-w-xl text-sm text-gray-500">
+          <p>Upload een Excel bestand met netto sales data.</p>
+        </div>
+        <form id="uploadForm" class="mt-5">
+          <input type="hidden" name="agentId" value={id} />
+          <div class="flex items-center">
+            <input
+              type="file"
+              id="salesFile"
+              name="salesFile"
+              accept=".xlsx,.xls,.csv"
+              class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+            />
+            <button
+              type="submit"
+              class="ml-3 inline-flex justify-center rounded-md border border-transparent bg-orange-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+            >
+              Upload
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import { supabase } from '../../../../lib/supabaseClient';
+  
+  const form = document.getElementById('commissionsForm');
+  const uploadForm = document.getElementById('uploadForm');
+  
+  // Handle commission form submission
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const agentId = formData.get('agentId');
+    
+    try {
+      // Get all commission inputs
+      const commissions = Array.from(formData.entries())
+        .filter(([key]) => key.startsWith('commission-'))
+        .map(([key, value]) => ({
+          agent_id: agentId,
+          supplier_id: key.replace('commission-', ''),
+          commission_rate: value ? parseFloat(value.toString()) : null
+        }))
+        .filter(c => c.commission_rate !== null);
+      
+      // Delete existing commissions
+      await supabase
+        .from('agent_supplier_commissions')
+        .delete()
+        .eq('agent_id', agentId);
+      
+      // Insert new commissions
+      if (commissions.length > 0) {
+        const { error } = await supabase
+          .from('agent_supplier_commissions')
+          .insert(commissions);
+        
+        if (error) throw error;
+      }
+      
+      alert('Commissies succesvol opgeslagen');
+    } catch (error) {
+      console.error('Error saving commissions:', error);
+      alert('Er is een fout opgetreden bij het opslaan van de commissies');
+    }
+  });
+
+  // Handle sales file upload
+  uploadForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const file = formData.get('salesFile') as File;
+    
+    if (!file) {
+      alert('Selecteer eerst een bestand');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/upload-sales', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      alert('Bestand succesvol geüpload');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Er is een fout opgetreden bij het uploaden van het bestand');
+    }
+  });
+</script>

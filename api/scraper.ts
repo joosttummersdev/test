@@ -17,27 +17,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let browser;
   try {
-    console.log('Launching browser...');
+    // Launch browser with specific Chrome flags
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [
+        ...chromium.args,
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--single-process',
+        '--no-zygote',
+        '--no-sandbox',
+        '--disable-setuid-sandbox'
+      ],
       executablePath: await chromium.executablePath(),
       headless: 'new',
-      ignoreHTTPSErrors: true
+      ignoreHTTPSErrors: true,
+      timeout: 60000
     });
 
-    console.log('Browser launched successfully');
     const page = await browser.newPage();
-    console.log('New page created');
+    
+    // Set longer timeout for navigation
+    await page.setDefaultNavigationTimeout(60000);
+    await page.setDefaultTimeout(60000);
 
     // Set viewport and user agent
     await page.setViewport({ width: 1280, height: 720 });
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.88 Safari/537.36');
 
-    // Block images, fonts, etc.
+    // Block unnecessary resources
     await page.setRequestInterception(true);
     page.on('request', (req) => {
-      const type = req.resourceType();
-      if (['image', 'stylesheet', 'font'].includes(type)) {
+      if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
         req.abort();
       } else {
         req.continue();
@@ -45,58 +55,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     // Add delay before navigation
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 2000));
 
-    // Navigation retries
-    const url = 'https://app.salesdock.nl/login';
+    // Navigation with retries
     let success = false;
-    let navError;
-
-    for (let i = 1; i <= 3; i++) {
-      console.log(`Navigation attempt ${i}...`);
+    let lastError;
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        await page.goto(url, {
+        console.log(`Navigation attempt ${attempt}...`);
+        await page.goto('https://app.salesdock.nl/login', {
           waitUntil: 'domcontentloaded',
-          timeout: 60000,
+          timeout: 30000
         });
         success = true;
         break;
-      } catch (err) {
-        navError = err;
-        console.error(`Navigation attempt ${i} failed:`, err);
-        if (i < 3) {
-          await new Promise(r => setTimeout(r, 5000));
+      } catch (error) {
+        lastError = error;
+        console.log(`Attempt ${attempt} failed:`, error.message);
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 3000));
         }
       }
     }
 
     if (!success) {
-      throw new Error(`Navigation failed after 3 attempts: ${navError?.message || 'Unknown error'}`);
+      throw new Error(`Navigation failed after 3 attempts: ${lastError?.message}`);
     }
 
-    console.log('Navigation successful');
-
-    // Add delay after navigation
-    await new Promise(r => setTimeout(r, 1000));
-
-    // Wait for login form
+    // Wait for login form with increased timeouts
     await Promise.all([
       page.waitForSelector('input[name="email"]', { timeout: 30000 }),
       page.waitForSelector('input[name="password"]', { timeout: 30000 })
     ]);
 
-    // Clear fields first
+    // Clear and fill form fields
     await page.$eval('input[name="email"]', (el: any) => el.value = '');
     await page.$eval('input[name="password"]', (el: any) => el.value = '');
-
-    // Fill login form
-    await page.type('input[name="email"]', username);
-    await page.type('input[name="password"]', password);
+    
+    await page.type('input[name="email"]', username, { delay: 100 });
+    await page.type('input[name="password"]', password, { delay: 100 });
 
     // Add delay before clicking
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 2000));
 
-    // Find and click login button
+    // Click login button
     const submitButton = await page.waitForSelector('button[type="submit"]', {
       timeout: 30000
     });
@@ -109,59 +112,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await Promise.all([
       page.waitForNavigation({ 
         waitUntil: 'domcontentloaded',
-        timeout: 60000 
+        timeout: 30000 
       }),
       submitButton.click()
     ]);
 
     // Add delay after navigation
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 2000));
 
     // Check for successful login
     const isLoggedIn = await Promise.race([
       page.waitForSelector('.dashboard-container', { 
         timeout: 30000,
         visible: true 
-      }).then(() => {
-        console.log('Found dashboard container');
-        return true;
-      }).catch(() => false),
+      }).then(() => true).catch(() => false),
       
       page.waitForSelector('nav.main-menu', {
         timeout: 30000,
         visible: true
-      }).then(() => {
-        console.log('Found navigation menu');
-        return true;
-      }).catch(() => false)
+      }).then(() => true).catch(() => false)
     ]);
 
     if (!isLoggedIn) {
-      console.log('Login verification failed, checking for error message...');
       const errorText = await page.evaluate(() => {
         const errorElement = document.querySelector('.alert-danger, .error-message');
         return errorElement ? errorElement.textContent : null;
       });
 
       if (errorText) {
-        console.log('Found error message:', errorText);
         throw new Error(`Login failed: ${errorText.trim()}`);
       }
 
       throw new Error('Login failed: Could not verify successful login');
     }
 
-    console.log('Login successful');
     return res.status(200).json({ success: true });
-  } catch (err) {
-    console.error('SCRAPER ERROR:', err);
-    return res.status(500).json({ 
-      error: 'Scraper failed', 
-      details: err instanceof Error ? err.message : String(err)
+  } catch (error: any) {
+    console.error('SCRAPER ERROR:', error);
+    return res.status(error.message.includes('Login failed') ? 401 : 500).json({ 
+      error: error.message,
+      details: error.stack 
     });
   } finally {
-    console.log('Ensuring browser is closed...');
-    if (browser) await browser.close();
-    console.log('Browser cleanup complete');
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (error) {
+        console.error('Error closing browser:', error);
+      }
+    }
   }
 }

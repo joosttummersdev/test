@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import puppeteer from 'puppeteer-extra';
+import puppeteer from 'puppeteer';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 // Add stealth plugin to avoid detection
@@ -31,7 +31,6 @@ export const post: APIRoute = async ({ request }) => {
     // Launch browser with proper configuration
     browser = await puppeteer.launch({
       headless: true,
-      executablePath: process.env.CHROME_EXECUTABLE_PATH || '/usr/bin/google-chrome',
       timeout: 120000,
       args: [
         '--no-sandbox',

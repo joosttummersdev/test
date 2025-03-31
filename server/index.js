@@ -10,13 +10,22 @@ import fs from 'fs';
 puppeteer.use(StealthPlugin());
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = 3001;
 
 // Enable CORS
 app.use(cors());
 app.use(express.json());
 
-// Root route
+// Get current directory
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientPath = path.join(__dirname, '../dist');
+
+// Serve static files from Astro if the directory exists
+if (fs.existsSync(clientPath)) {
+  app.use(express.static(clientPath));
+}
+
+// Root route (placed before the fallback route)
 app.get("/", (req, res) => {
   res.send("✅ Scraper backend is live!");
 });
@@ -145,24 +154,17 @@ app.post('/api/scraper/test', async (req, res) => {
   }
 });
 
-// Get current directory
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const clientPath = path.join(__dirname, '../dist');
+// Fallback route for unknown paths (placed after all other routes)
+app.get('*', (req, res, next) => {
+  if (req.path === '/') return next();
 
-// Serve static files from Astro if the directory exists
-if (fs.existsSync(clientPath)) {
-  app.use(express.static(clientPath));
-
-  // Only set up the fallback route if we have a frontend
-  app.get('*', (req, res) => {
-    const indexPath = path.join(clientPath, 'index.html');
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      res.status(404).send("❌ Not Found");
-    }
-  });
-}
+  const indexPath = path.join(clientPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send("❌ Not Found");
+  }
+});
 
 app.listen(port, () => {
   console.log(`Scraper API server running at http://localhost:${port}`);

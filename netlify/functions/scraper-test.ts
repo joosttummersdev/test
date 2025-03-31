@@ -136,22 +136,17 @@ export const handler = async (event) => {
     ]);
 
     if (!isLoggedIn) {
-      console.log('Page content after login attempt:', await page.content());
-      
       const errorText = await page.evaluate(() => {
         const errorElement = document.querySelector('.alert-danger, .error-message');
         return errorElement ? errorElement.textContent : null;
       });
 
       if (errorText) {
-        console.log('Found error message:', errorText);
         throw new Error(`Login failed: ${errorText.trim()}`);
       }
 
       throw new Error('Login failed: Could not verify successful login');
     }
-
-    console.log('Login successful');
 
     return {
       statusCode: 200,

@@ -157,7 +157,7 @@ const { data: recentErrors } = await supabase
   </div>
 </AdminLayout>
 
-<script>
+<script type="module" client:load>
   import { supabase } from '../../../lib/supabaseClient';
   
   const modal = document.getElementById('configModal');

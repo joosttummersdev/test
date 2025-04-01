@@ -2,254 +2,141 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { supabase } from '../../../lib/supabaseClient';
 
-// Get customer statistics
-const { data: customerCount } = await supabase
-  .from('customers')
-  .select('count');
-
-// Get recent customers
-const { data: recentCustomers } = await supabase
-  .from('customers')
+// Get scraper data
+const { data: transactions } = await supabase
+  .from('scraper_transactions')
   .select(`
     *,
-    agents:profiles!customers_agent_id_fkey (
-      first_name,
-      last_name
+    environment:scraper_environments(
+      name,
+      type
     )
   `)
-  .order('created_at', { ascending: false })
-  .limit(10);
+  .order('created_at', { ascending: false });
 
 // Format date
 const formatDate = (date: string) => {
-  const d = new Date(date);
-  return d.toLocaleDateString('nl-NL', {
-    day: 'numeric',
+  return new Date(date).toLocaleDateString('nl-NL', {
+    year: 'numeric',
     month: 'long',
-    year: 'numeric'
+    day: 'numeric'
   });
 };
 ---
 
-<AdminLayout title="Data">
+<AdminLayout title="Scraped Data">
   <div class="space-y-6">
-    <!-- Header -->
     <div class="sm:flex sm:items-center sm:justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Klantenbeheer</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Scraped Data</h1>
         <p class="mt-2 text-sm text-gray-700">
-          Beheer en analyseer alle klantgegevens in het systeem
+          Overview of all scraped transaction data
         </p>
       </div>
-      <div class="mt-4 sm:mt-0">
-        <button
-          type="button"
-          onclick="addCustomer()"
-          class="inline-flex items-center justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500"
-        >
-          Nieuwe Klant
-        </button>
-      </div>
     </div>
 
-    <!-- Quick Stats -->
-    <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
-      <div class="bg-white overflow-hidden shadow rounded-lg">
-        <div class="p-5">
-          <div class="flex items-center">
-            <div class="flex-shrink-0">
-              <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-              </svg>
-            </div>
-            <div class="ml-5 w-0 flex-1">
-              <dl>
-                <dt class="text-sm font-medium text-gray-500 truncate">
-                  Totaal Aantal Klanten
-                </dt>
-                <dd class="flex items-baseline">
-                  <div class="text-2xl font-semibold text-gray-900">
-                    {customerCount?.[0]?.count || 0}
-                  </div>
-                </dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Customers Table -->
+    <!-- Data Table -->
     <div class="bg-white shadow sm:rounded-lg">
       <div class="px-4 py-5 sm:p-6">
-        <h3 class="text-lg font-medium leading-6 text-gray-900">Recente Klanten</h3>
-        <div class="mt-6 flow-root">
-          <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-              <table class="min-w-full divide-y divide-gray-300">
-                <thead>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Environment
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Transaction ID
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Customer
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Product
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th scope="col" class="relative px-6 py-3">
+                  <span class="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {transactions?.map((transaction) => {
+                const data = transaction.transaction_data;
+                return (
                   <tr>
-                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Naam</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Email</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Telefoon</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Adres</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Agent</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Aangemaakt</th>
-                    <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-0">
-                      <span class="sr-only">Acties</span>
-                    </th>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {transaction.environment?.name}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {transaction.transaction_id}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm font-medium text-gray-900">
+                        {data.customer?.businessName}
+                      </div>
+                      <div class="text-sm text-gray-500">
+                        {data.customer?.contact?.name}
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">{data.product?.name}</div>
+                      <div class="text-sm text-gray-500">{data.product?.supplier}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                        data.status === 'Nieuw' ? 'bg-green-100 text-green-800' :
+                        data.status === 'In behandeling' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {data.status}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(transaction.created_at)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onclick={`showDetails('${transaction.id}')`}
+                        class="text-orange-600 hover:text-orange-900"
+                      >
+                        Details
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                  {recentCustomers?.map((customer) => (
-                    <tr>
-                      <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
-                        {customer.first_name} {customer.last_name}
-                      </td>
-                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {customer.email || '-'}
-                      </td>
-                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {customer.phone || '-'}
-                      </td>
-                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {customer.street} {customer.house_number}, {customer.postal_code}
-                      </td>
-                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {customer.agents?.first_name} {customer.agents?.last_name}
-                      </td>
-                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {formatDate(customer.created_at)}
-                      </td>
-                      <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
-                        <button
-                          onclick={`editCustomer('${customer.id}')`}
-                          class="text-orange-600 hover:text-orange-900 mr-4"
-                        >
-                          Bewerken
-                        </button>
-                        <a
-                          href={`/admin/data/customers/${customer.id}`}
-                          class="text-orange-600 hover:text-orange-900"
-                        >
-                          Details
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Add/Edit Customer Modal -->
-  <div id="customerModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-      <div class="px-6 py-4 border-b">
-        <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Nieuwe Klant</h3>
-      </div>
-      
-      <form id="customerForm" class="px-6 py-4">
-        <input type="hidden" id="customerId" name="customerId" />
-        <div class="space-y-4">
-          <div>
-            <label for="firstName" class="block text-sm font-medium text-gray-700">Voornaam</label>
-            <input
-              type="text"
-              id="firstName"
-              name="firstName"
-              required
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-            />
-          </div>
-          
-          <div>
-            <label for="lastName" class="block text-sm font-medium text-gray-700">Achternaam</label>
-            <input
-              type="text"
-              id="lastName"
-              name="lastName"
-              required
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-            />
-          </div>
-          
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-            />
-          </div>
-          
-          <div>
-            <label for="phone" class="block text-sm font-medium text-gray-700">Telefoon</label>
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-            />
-          </div>
-          
-          <div>
-            <label for="street" class="block text-sm font-medium text-gray-700">Straat</label>
-            <input
-              type="text"
-              id="street"
-              name="street"
-              required
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-            />
-          </div>
-          
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="houseNumber" class="block text-sm font-medium text-gray-700">Huisnummer</label>
-              <input
-                type="text"
-                id="houseNumber"
-                name="houseNumber"
-                required
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-              />
-            </div>
-            
-            <div>
-              <label for="postalCode" class="block text-sm font-medium text-gray-700">Postcode</label>
-              <input
-                type="text"
-                id="postalCode"
-                name="postalCode"
-                required
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-              />
-            </div>
-          </div>
+    <!-- Details Modal -->
+    <div id="detailsModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+      <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b">
+          <h3 class="text-lg font-medium text-gray-900">Transaction Details</h3>
         </div>
-      </form>
-      
-      <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
-        <button
-          type="button"
-          onclick="hideModal()"
-          class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
-        >
-          Annuleren
-        </button>
-        <button
-          type="submit"
-          form="customerForm"
-          class="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md"
-        >
-          Opslaan
-        </button>
+        
+        <div id="detailsContent" class="px-6 py-4">
+          <!-- Content will be populated by JavaScript -->
+        </div>
+        
+        <div class="px-6 py-4 bg-gray-50 flex justify-end">
+          <button
+            type="button"
+            onclick="hideDetailsModal()"
+            class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -257,107 +144,144 @@ const formatDate = (date: string) => {
 
 <script>
   import { supabase } from '../../../lib/supabaseClient';
-  
-  const modal = document.getElementById('customerModal');
-  const form = document.getElementById('customerForm') as HTMLFormElement;
-  const modalTitle = document.getElementById('modalTitle');
-  const customerIdInput = document.getElementById('customerId') as HTMLInputElement;
-  
-  let editMode = false;
-  
-  // Show modal
-  window.addCustomer = function() {
-    editMode = false;
-    modalTitle!.textContent = 'Nieuwe Klant';
-    form?.reset();
-    modal?.classList.remove('hidden');
+
+  const modal = document.getElementById('detailsModal');
+  const content = document.getElementById('detailsContent');
+
+  // Format currency
+  const formatCurrency = (amount: number) => 
+    new Intl.NumberFormat('nl-NL', { 
+      style: 'currency', 
+      currency: 'EUR' 
+    }).format(amount);
+
+  // Show transaction details
+  window.showDetails = async function(id: string) {
+    try {
+      const { data: transaction, error } = await supabase
+        .from('scraper_transactions')
+        .select(`
+          *,
+          environment:scraper_environments(
+            name,
+            type
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      if (!content) return;
+
+      const data = transaction.transaction_data;
+      
+      content.innerHTML = `
+        <div class="space-y-6">
+          <div>
+            <h4 class="text-sm font-medium text-gray-900">Product Information</h4>
+            <dl class="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Product</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.product.name}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Type</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.product.type}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Supplier</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.product.supplier}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Status</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.status}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-900">Customer Information</h4>
+            <dl class="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Business Name</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.customer.businessName}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Contact Person</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.customer.contact.name}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Email</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.customer.contact.email}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Phone</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.customer.contact.phone}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Delivery Address</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.customer.deliveryAddress}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Correspondence Address</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.customer.correspondenceAddress}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-900">Energy Details</h4>
+            <dl class="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Type</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.energy.type}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">EAN Code</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.energy.eanCode}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Usage</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.energy.usage} kWh</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Dual Meter</dt>
+                <dd class="mt-1 text-sm text-gray-900">${data.energy.dualMeter ? 'Yes' : 'No'}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-900">Financial Details</h4>
+            <dl class="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Annual Costs</dt>
+                <dd class="mt-1 text-sm text-gray-900">${formatCurrency(data.annualCosts)}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Monthly Costs</dt>
+                <dd class="mt-1 text-sm text-gray-900">${formatCurrency(data.monthlyCosts)}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      `;
+
+      modal?.classList.remove('hidden');
+    } catch (error) {
+      console.error('Error fetching transaction details:', error);
+      alert('Error loading transaction details');
+    }
   };
-  
-  // Hide modal
-  window.hideModal = function() {
+
+  // Hide details modal
+  window.hideDetailsModal = function() {
     modal?.classList.add('hidden');
-    form?.reset();
   };
-  
+
   // Close on outside click
   modal?.addEventListener('click', (e) => {
-    if (e.target === modal) hideModal();
+    if (e.target === modal) window.hideDetailsModal();
   });
-  
-  // Handle form submission
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData(form);
-    
-    try {
-      if (editMode) {
-        const { error } = await supabase
-          .from('customers')
-          .update({
-            first_name: formData.get('firstName'),
-            last_name: formData.get('lastName'),
-            email: formData.get('email'),
-            phone: formData.get('phone'),
-            street: formData.get('street'),
-            house_number: formData.get('houseNumber'),
-            postal_code: formData.get('postalCode')
-          })
-          .eq('id', formData.get('customerId'));
-        
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('customers')
-          .insert({
-            first_name: formData.get('firstName'),
-            last_name: formData.get('lastName'),
-            email: formData.get('email'),
-            phone: formData.get('phone'),
-            street: formData.get('street'),
-            house_number: formData.get('houseNumber'),
-            postal_code: formData.get('postalCode')
-          });
-        
-        if (error) throw error;
-      }
-      
-      hideModal();
-      window.location.reload();
-    } catch (error) {
-      console.error('Error saving customer:', error);
-      alert('Er is een fout opgetreden bij het opslaan van de klant.');
-    }
-  });
-  
-  // Edit customer
-  window.editCustomer = async function(id: string) {
-    editMode = true;
-    modalTitle!.textContent = 'Klant Bewerken';
-    
-    const { data: customer, error } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('id', id)
-      .single();
-      
-    if (error) {
-      console.error('Error fetching customer:', error);
-      alert(error.message);
-      return;
-    }
-      
-    if (customer) {
-      customerIdInput.value = customer.id;
-      (form.elements.namedItem('firstName') as HTMLInputElement).value = customer.first_name;
-      (form.elements.namedItem('lastName') as HTMLInputElement).value = customer.last_name;
-      (form.elements.namedItem('email') as HTMLInputElement).value = customer.email || '';
-      (form.elements.namedItem('phone') as HTMLInputElement).value = customer.phone || '';
-      (form.elements.namedItem('street') as HTMLInputElement).value = customer.street;
-      (form.elements.namedItem('houseNumber') as HTMLInputElement).value = customer.house_number;
-      (form.elements.namedItem('postalCode') as HTMLInputElement).value = customer.postal_code;
-      
-      modal?.classList.remove('hidden');
-    }
-  };
 </script>

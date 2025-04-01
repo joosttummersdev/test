@@ -1,0 +1,35 @@
+---
+---
+
+<script is:inline>
+  // Define window functions before loading the main script
+  window.showConfigModal = function() {
+    const modal = document.getElementById('configModal');
+    if (modal) modal.classList.remove('hidden');
+  };
+
+  window.hideModal = function(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.add('hidden');
+  };
+
+  window.editConfig = async function(id) {
+    // Placeholder that will be replaced by the loaded script
+    console.log('Edit config called for ID:', id);
+  };
+</script>
+
+<script>
+  // Wait for DOM to be ready
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      // Dynamically import the script
+      const { default: initConfig } = await import('../scripts/scraper-config.ts');
+      if (typeof initConfig === 'function') {
+        initConfig();
+      }
+    } catch (error) {
+      console.error('Error loading scraper config:', error);
+    }
+  });
+</script>

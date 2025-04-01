@@ -3,6 +3,7 @@ import nodeFetch from 'node-fetch';
 interface TestCredentials {
   username: string;
   password: string;
+  type?: 'hostedenergy' | 'salesdock';
 }
 
 // Helper function to create a timeout promise
@@ -19,11 +20,10 @@ function createTimeoutPromise(ms: number) {
 }
 
 export async function testScraperCredentials(credentials: TestCredentials) {
-  const timeout = createTimeoutPromise(60000); // Increased to 60 seconds
+  const timeout = createTimeoutPromise(60000); // 60 seconds timeout
   const fetch = globalThis.fetch || nodeFetch;
 
   console.log('🔄 Starting scraper test...');
-  console.log('🎯 Target URL:', 'https://scraper-73dv.onrender.com/api/scraper/test');
 
   try {
     const apiBase = 'https://scraper-73dv.onrender.com';
@@ -35,9 +35,14 @@ export async function testScraperCredentials(credentials: TestCredentials) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json"
+          "Accept": "application/json",
+          "Access-Control-Allow-Origin": "*"
         },
-        body: JSON.stringify(credentials)
+        body: JSON.stringify({
+          username: credentials.username,
+          password: credentials.password,
+          type: credentials.type || 'salesdock'
+        })
       }),
       timeout.promise
     ]);

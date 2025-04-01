@@ -1,37 +1,71 @@
 import type { APIRoute } from 'astro';
+import nodeFetch from 'node-fetch';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
 export const post: APIRoute = async ({ request }) => {
+  // Handle CORS preflight
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Get credentials from request
     const { username, password, type } = await request.json();
 
-    const res = await fetch('https://scraper-73dv.onrender.com/api/scraper/test', {
+    if (!username || !password || !type) {
+      throw new Error('Missing required fields');
+    }
+
+    const fetch = globalThis.fetch || nodeFetch;
+
+    const response = await fetch('https://scraper-73dv.onrender.com/api/scraper/test', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, type }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ username, password, type })
     });
 
-    const data = await res.text(); // prevent eval error
-    return new Response(data, {
-      status: res.status,
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      const text = await response.text();
+      throw new Error(`Invalid JSON from scraper: ${text}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Scraper returned an error');
+    }
+
+    return new Response(JSON.stringify(data), {
+      status: 200,
       headers: {
         ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
+        'Content-Type': 'application/json'
+      }
     });
-  } catch (err: any) {
+
+  } catch (error: any) {
+    console.error('Scraper test error:', error);
     return new Response(
-      JSON.stringify({ error: err.message || 'Unknown error' }),
-      { status: 500, headers: corsHeaders }
+      JSON.stringify({
+        error: error.message,
+        stack: error.stack
+      }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
     );
   }
 };

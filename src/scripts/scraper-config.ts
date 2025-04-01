@@ -160,11 +160,17 @@ export default function initConfig() {
         // Test credentials first
         addLog('🔍 Testing credentials...');
         try {
-          await testScraperCredentials({ 
-            username, 
-            password, 
-            type: type as 'hostedenergy' | 'salesdock'
+          const res = await fetch('/api/scraper/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, type }),
           });
+          
+          if (!res.ok) {
+            const { error } = await res.json();
+            throw new Error(error || 'Test mislukt');
+          }
+          
           addLog('✅ Credentials test successful');
         } catch (error: any) {
           addLog(`❌ Credentials test failed: ${error.message}`, 'error');

@@ -1,7 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { supabase } from '../../../lib/supabaseClient';
-import { testScraperCredentials } from '../../../lib/scraper';
 
 // Get scraper configs
 const { data: configs } = await supabase
@@ -42,38 +41,6 @@ const { data: recentErrors } = await supabase
         >
           Nieuwe Configuratie
         </button>
-      </div>
-    </div>
-
-    <!-- Debug Console -->
-    <div class="bg-white shadow sm:rounded-lg">
-      <div class="px-4 py-5 sm:p-6">
-        <h3 class="text-lg font-medium leading-6 text-gray-900">Debug Console</h3>
-        <div class="mt-4">
-          <div class="flex space-x-4 mb-4">
-            <select 
-              id="configSelect"
-              class="block w-64 rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-            >
-              <option value="">Selecteer configuratie...</option>
-              {configs?.map(config => (
-                <option value={config.id}>{config.name}</option>
-              ))}
-            </select>
-            <button
-              id="startDebug"
-              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-              disabled
-            >
-              Start Debug Run
-            </button>
-          </div>
-          
-          <!-- Terminal Container -->
-          <div class="terminal-container">
-            <div id="terminal" class="font-mono text-sm text-white p-4"></div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -153,6 +120,14 @@ const { data: recentErrors } = await supabase
                 </div>
               </div>
             </div>
+
+            <!-- Debug Log -->
+            <div id="debugLog" class="mt-4 hidden">
+              <h4 class="text-sm font-medium text-gray-900 mb-2">Debug Log</h4>
+              <div class="bg-gray-50 rounded-md p-4 font-mono text-sm max-h-48 overflow-y-auto space-y-1">
+                <!-- Log entries will be added here -->
+              </div>
+            </div>
           </div>
         </form>
         
@@ -184,7 +159,6 @@ const { data: recentErrors } = await supabase
 
 <script>
   import { supabase } from '../../../lib/supabaseClient';
-  import { testScraperCredentials } from '../../../lib/scraper';
   
   const modal = document.getElementById('configModal');
   const form = document.getElementById('configForm') as HTMLFormElement;
@@ -194,14 +168,31 @@ const { data: recentErrors } = await supabase
   const errorText = document.getElementById('errorText');
   const submitButton = document.getElementById('submitButton');
   const loadingSpinner = document.getElementById('loadingSpinner');
+  const debugLog = document.getElementById('debugLog');
   
   let editMode = false;
+
+  // Add debug log entry
+  function addLog(message: string, type: 'info' | 'error' = 'info') {
+    if (!debugLog) return;
+
+    debugLog.classList.remove('hidden');
+    const logContainer = debugLog.querySelector('div');
+    if (!logContainer) return;
+
+    const entry = document.createElement('div');
+    entry.className = `text-${type === 'error' ? 'red' : 'gray'}-600`;
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    logContainer.appendChild(entry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
 
   // Show error message
   function showError(message: string) {
     if (errorMessage && errorText) {
       errorText.textContent = message;
       errorMessage.classList.remove('hidden');
+      addLog(`Error: ${message}`, 'error');
     }
   }
 
@@ -230,6 +221,7 @@ const { data: recentErrors } = await supabase
     modalTitle!.textContent = 'Nieuwe Configuratie';
     form?.reset();
     hideError();
+    debugLog?.classList.add('hidden');
     modal?.classList.remove('hidden');
   };
   
@@ -238,6 +230,7 @@ const { data: recentErrors } = await supabase
     modal?.classList.add('hidden');
     form?.reset();
     hideError();
+    debugLog?.classList.add('hidden');
     setLoading(false);
   };
   
@@ -268,12 +261,22 @@ const { data: recentErrors } = await supabase
       if (!username) throw new Error('Gebruikersnaam is verplicht');
       if (!password) throw new Error('Wachtwoord is verplicht');
 
-      // Test credentials before saving
-      try {
-        await testScraperCredentials({ username, password });
-      } catch (error: any) {
-        throw new Error(`Login test failed: ${error.message}`);
+      // Test credentials first
+      addLog('🔍 Testing credentials via /api/scraper/test');
+      const response = await fetch('/api/scraper/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error("❌ Login test error:", result);
+        throw new Error(result.error || 'Login test failed');
       }
+
+      addLog('✅ Credentials test successful');
 
       // Create config data object
       const configData = {
@@ -311,6 +314,7 @@ const { data: recentErrors } = await supabase
         throw new Error(result.error.message);
       }
 
+      addLog('✅ Configuration saved successfully');
       hideModal();
       window.location.reload();
     } catch (error: any) {
@@ -326,6 +330,7 @@ const { data: recentErrors } = await supabase
     editMode = true;
     modalTitle!.textContent = 'Configuratie Bewerken';
     hideError();
+    debugLog?.classList.add('hidden');
     
     try {
       const { data: config, error } = await supabase

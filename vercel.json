@@ -3,13 +3,27 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "framework": "astro",
+  "rewrites": [
+    {
+      "source": "/api/scraper/test",
+      "destination": "/api/scraper/test"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
-          "key": "Content-Security-Policy",
-          "value": "script-src 'self' 'unsafe-eval'; object-src 'none';"
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
         }
       ]
     }

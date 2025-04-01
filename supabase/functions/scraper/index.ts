@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import puppeteer from 'npm:puppeteer-core@21.3.8';
+import puppeteer from 'npm:puppeteer-core@19.11.1';
 import chromium from 'npm:@sparticuz/chromium@112.0.0';
 
 const corsHeaders = {
@@ -16,11 +16,10 @@ serve(async (req) => {
 
   let browser;
   try {
-    // Get credentials from request
-    const { username, password } = await req.json();
+    const { transactionId, environment } = await req.json();
 
-    if (!username || !password) {
-      throw new Error('Username and password are required');
+    if (!transactionId || !environment) {
+      throw new Error('Transaction ID and environment are required');
     }
 
     console.log('Launching browser...');
@@ -55,93 +54,19 @@ serve(async (req) => {
         }
       });
 
-      // Add delay before navigation
-      await new Promise(r => setTimeout(r, 1000));
-
-      // Navigate to login page
-      await page.goto('https://app.salesdock.nl/login', {
-        waitUntil: 'domcontentloaded', // ✅ Use domcontentloaded instead of networkidle0
-        timeout: 60000
-      });
-
-      // Add delay after navigation
-      await new Promise(r => setTimeout(r, 1000));
-
-      // Wait for login form
-      await page.waitForSelector('input[name="email"]', { timeout: 30000 }); // ✅ Increased timeout
-      await page.waitForSelector('input[name="password"]', { timeout: 30000 }); // ✅ Increased timeout
-
-      // Clear fields first
-      await page.$eval('input[name="email"]', (el: any) => el.value = '');
-      await page.$eval('input[name="password"]', (el: any) => el.value = '');
-
-      // Fill login form
-      await page.type('input[name="email"]', username);
-      await page.type('input[name="password"]', password);
-
-      // Add delay before clicking
-      await new Promise(r => setTimeout(r, 1000));
-
-      // Find and click login button
-      const submitButton = await page.waitForSelector('button[type="submit"]', {
-        timeout: 30000 // ✅ Increased timeout
-      });
-
-      if (!submitButton) {
-        throw new Error('Login button not found');
+      // Login based on environment type
+      if (environment.type === 'hostedenergy') {
+        await loginToHostedEnergy(page, environment);
+      } else if (environment.type === 'salesdock') {
+        await loginToSalesdock(page, environment);
       }
 
-      // Click and wait for navigation
-      await Promise.all([
-        page.waitForNavigation({ 
-          waitUntil: 'domcontentloaded', // ✅ Use domcontentloaded instead of networkidle0
-          timeout: 60000 
-        }),
-        submitButton.click()
-      ]);
-
-      // Add delay after navigation
-      await new Promise(r => setTimeout(r, 1000));
-
-      // Check for successful login
-      const isLoggedIn = await Promise.race([
-        page.waitForSelector('.dashboard-container', { 
-          timeout: 30000, // ✅ Increased timeout
-          visible: true 
-        }).then(() => {
-          console.log('Found dashboard container');
-          return true;
-        }).catch(() => false),
-        
-        page.waitForSelector('nav.main-menu', {
-          timeout: 30000, // ✅ Increased timeout
-          visible: true
-        }).then(() => {
-          console.log('Found navigation menu');
-          return true;
-        }).catch(() => false)
-      ]);
-
-      if (!isLoggedIn) {
-        console.log('Login verification failed, checking for error message...');
-        const errorText = await page.evaluate(() => {
-          const errorElement = document.querySelector('.alert-danger, .error-message');
-          return errorElement ? errorElement.textContent : null;
-        });
-
-        if (errorText) {
-          console.log('Found error message:', errorText);
-          throw new Error(`Login failed: ${errorText.trim()}`);
-        }
-
-        throw new Error('Login failed: Could not verify successful login');
-      }
-
-      console.log('Login successful');
+      // Navigate to transaction and extract data
+      const data = await scrapeTransaction(page, transactionId, environment);
 
       return new Response(
-        JSON.stringify({ success: true }), 
-        { 
+        JSON.stringify(data),
+        {
           status: 200,
           headers: {
             ...corsHeaders,
@@ -150,16 +75,18 @@ serve(async (req) => {
         }
       );
     } finally {
-      await browser.close();
+      if (browser) {
+        await browser.close();
+      }
     }
   } catch (error: any) {
     console.error('SCRAPER ERROR:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message || 'Unexpected error',
         details: error.stack
-      }), 
-      { 
+      }),
+      {
         status: error.message.includes('Login failed') ? 401 : 500,
         headers: {
           ...corsHeaders,
@@ -169,3 +96,93 @@ serve(async (req) => {
     );
   }
 });
+
+async function loginToHostedEnergy(page: any, environment: any) {
+  await page.goto('https://admin.hostedenergy.nl/login');
+  await page.waitForSelector('input[name="email"]');
+  await page.type('input[name="email"]', environment.credentials.username);
+  await page.type('input[name="password"]', environment.credentials.password);
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type="submit"]')
+  ]);
+}
+
+async function loginToSalesdock(page: any, environment: any) {
+  const baseUrl = environment.settings.base_url;
+  await page.goto(`${baseUrl}/login`);
+  await page.waitForSelector('input[name="email"]');
+  await page.type('input[name="email"]', environment.credentials.username);
+  await page.type('input[name="password"]', environment.credentials.password);
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type="submit"]')
+  ]);
+}
+
+async function scrapeTransaction(page: any, transactionId: string, environment: any) {
+  const baseUrl = environment.settings.base_url;
+  await page.goto(`${baseUrl}/transactions/${transactionId}`);
+  
+  // Wait for transaction details to load
+  await page.waitForSelector('.transaction-details', { timeout: 30000 });
+
+  // Extract data using specific selectors
+  const data = await page.evaluate(() => {
+    const getText = (selector: string) => {
+      const el = document.querySelector(selector);
+      return el ? el.textContent?.trim() : null;
+    };
+
+    const getNumeric = (selector: string) => {
+      const text = getText(selector);
+      if (!text) return null;
+      return parseFloat(text.replace(/[^0-9,]/g, '').replace(',', '.'));
+    };
+
+    return {
+      product: {
+        name: getText('.product-name'),
+        type: getText('.product-type'),
+        supplier: getText('.supplier-name')
+      },
+      status: getText('.status'),
+      validUntil: getText('.valid-until'),
+      organization: getText('.organization'),
+      seller: getText('.seller'),
+      annualCosts: getNumeric('.annual-costs'),
+      monthlyCosts: getNumeric('.monthly-costs'),
+      customer: {
+        businessName: getText('.business-name'),
+        contactPerson: getText('.contact-person'),
+        kvkNumber: getText('.kvk-number'),
+        deliveryAddress: getText('.delivery-address'),
+        correspondenceAddress: getText('.correspondence-address'),
+        iban: getText('.iban'),
+        ibanName: getText('.iban-name'),
+        contact: {
+          name: getText('.contact-name'),
+          email: getText('.contact-email'),
+          phone: getText('.contact-phone'),
+          dateOfBirth: getText('.date-of-birth')
+        }
+      },
+      energy: {
+        type: getText('.energy-type'),
+        eanCode: getText('.ean-code'),
+        dualMeter: getText('.dual-meter') === 'Ja',
+        usage: getNumeric('.energy-usage'),
+        feedback: getNumeric('.energy-feedback'),
+        residentialUse: getText('.residential-use') === 'Ja',
+        estimatedUsage: getText('.estimated-usage')
+      },
+      options: {
+        isRelocation: getText('.is-relocation') === 'Ja',
+        desiredSwitchDate: getText('.switch-date'),
+        paymentMethod: getText('.payment-method')
+      }
+    };
+  });
+
+  return data;
+}

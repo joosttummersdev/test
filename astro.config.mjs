@@ -50,7 +50,10 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': path.resolve('./src'),
-      },
+      }
+    },
+    optimizeDeps: {
+      include: ['node-domexception']
     }
   }
 });

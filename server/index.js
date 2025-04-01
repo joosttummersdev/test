@@ -158,6 +158,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Root route
+app.get('/', (req, res) => {
+  res.send('✅ Scraper backend is running');
+});
+
 app.listen(port, () => {
   console.log(`Scraper API server running at http://localhost:${port}`);
 });

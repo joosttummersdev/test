@@ -60,7 +60,7 @@ serve(async (req) => {
 
       // Navigate to login page
       await page.goto('https://app.salesdock.nl/login', {
-        waitUntil: 'domcontentloaded', // ✅ Use domcontentloaded instead of networkidle0
+        waitUntil: 'domcontentloaded',
         timeout: 60000
       });
 
@@ -68,8 +68,8 @@ serve(async (req) => {
       await new Promise(r => setTimeout(r, 1000));
 
       // Wait for login form
-      await page.waitForSelector('input[name="email"]', { timeout: 30000 }); // ✅ Increased timeout
-      await page.waitForSelector('input[name="password"]', { timeout: 30000 }); // ✅ Increased timeout
+      await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+      await page.waitForSelector('input[name="password"]', { timeout: 30000 });
 
       // Clear fields first
       await page.$eval('input[name="email"]', (el: any) => el.value = '');
@@ -84,7 +84,7 @@ serve(async (req) => {
 
       // Find and click login button
       const submitButton = await page.waitForSelector('button[type="submit"]', {
-        timeout: 30000 // ✅ Increased timeout
+        timeout: 30000
       });
 
       if (!submitButton) {
@@ -94,7 +94,7 @@ serve(async (req) => {
       // Click and wait for navigation
       await Promise.all([
         page.waitForNavigation({ 
-          waitUntil: 'domcontentloaded', // ✅ Use domcontentloaded instead of networkidle0
+          waitUntil: 'domcontentloaded',
           timeout: 60000 
         }),
         submitButton.click()
@@ -106,7 +106,7 @@ serve(async (req) => {
       // Check for successful login
       const isLoggedIn = await Promise.race([
         page.waitForSelector('.dashboard-container', { 
-          timeout: 30000, // ✅ Increased timeout
+          timeout: 30000,
           visible: true 
         }).then(() => {
           console.log('Found dashboard container');
@@ -114,7 +114,7 @@ serve(async (req) => {
         }).catch(() => false),
         
         page.waitForSelector('nav.main-menu', {
-          timeout: 30000, // ✅ Increased timeout
+          timeout: 30000,
           visible: true
         }).then(() => {
           console.log('Found navigation menu');
@@ -123,7 +123,6 @@ serve(async (req) => {
       ]);
 
       if (!isLoggedIn) {
-        console.log('Login verification failed, checking for error message...');
         const errorText = await page.evaluate(() => {
           const errorElement = document.querySelector('.alert-danger, .error-message');
           return errorElement ? errorElement.textContent : null;
@@ -150,7 +149,9 @@ serve(async (req) => {
         }
       );
     } finally {
-      await browser.close();
+      if (browser) {
+        await browser.close();
+      }
     }
   } catch (error: any) {
     console.error('SCRAPER ERROR:', error);

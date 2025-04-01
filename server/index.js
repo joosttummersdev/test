@@ -7,14 +7,15 @@ import chromium from '@sparticuz/chromium';
 puppeteer.use(StealthPlugin());
 
 const app = express();
-const port = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // Enable CORS
 app.use(express.json());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Info, apikey, X-Client-Info');
+  res.header('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -185,6 +186,12 @@ app.get('/', (req, res) => {
   res.send('✅ Scraper backend is running');
 });
 
-app.listen(port, () => {
-  console.log(`Scraper API server running at http://localhost:${port}`);
+// Catch-all route for debugging
+app.use('*', (req, res) => {
+  console.log(`Received request for: ${req.originalUrl}`);
+  res.status(404).json({ error: `Route not found: ${req.originalUrl}` });
+});
+
+app.listen(PORT, () => {
+  console.log(`Scraper API server running at http://localhost:${PORT}`);
 });

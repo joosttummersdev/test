@@ -22,10 +22,14 @@ export async function testScraperCredentials(credentials: TestCredentials) {
   const timeout = createTimeoutPromise(60000); // Increased to 60 seconds
   const fetch = globalThis.fetch || nodeFetch;
 
+  console.log('🔄 Starting scraper test...');
+  console.log('🎯 Target URL:', 'https://scraper-73dv.onrender.com/api/scraper/test');
+
   try {
     const apiBase = 'https://scraper-73dv.onrender.com';
     
     // Race between fetch and timeout
+    console.log('📡 Sending request...');
     const response = await Promise.race([
       fetch(`${apiBase}/api/scraper/test`, {
         method: "POST",
@@ -40,21 +44,44 @@ export async function testScraperCredentials(credentials: TestCredentials) {
 
     // Clear timeout since request completed
     timeout.clear();
+    console.log('⏱️ Request completed within timeout');
 
     if (!response) {
+      console.error('❌ No response received from server');
       throw new Error('No response received from server');
     }
 
+    console.log('📥 Response received, status:', response.status);
     const data = await response.json();
+    console.log('📦 Response data:', data);
+    
     if (!response.ok) {
-      throw new Error(data.error || "Fout bij verbinden met scraper");
+      console.error("❌ Backend error details:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: data.error,
+        details: data.details
+      });
+      throw new Error(`Login test failed: ${data.error}\nDetails: ${data.details}`);
     }
+    
+    console.log('✅ Test completed successfully');
     return data;
   } catch (error: any) {
-    console.error('Error testing scraper credentials:', error);
+    console.error('❌ Error testing scraper credentials:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
     if (error.name === 'AbortError' || error.message.includes('timeout')) {
+      console.error('⏱️ Request timed out');
       throw new Error('De verbinding met de scraper is verlopen. Probeer het opnieuw.');
     }
-    throw new Error(error.message || 'Onverwachte fout bij testen van inloggegevens');
+
+    // Enhance error message with any available details
+    const errorMessage = error.message || 'Onverwachte fout bij testen van inloggegevens';
+    console.error('📝 Final error message:', errorMessage);
+    throw new Error(errorMessage);
   }
 }

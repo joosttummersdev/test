@@ -10,7 +10,7 @@ const supabaseAnonKey = process.env.PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2dXJpeG14cmtneXplcXh3Y3ZzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI1NjkzMiwiZXhwIjoyMDU4ODMyOTMyfQ.TfrBTmZOhnq-0CufkJX9Xu2hRWI2mYUhXJ3vkfXvA9E';
 
 export default defineConfig({
-  output: 'server',
+  output: 'static',
   adapter: vercel({
     imageService: true,
     devImageService: 'sharp',

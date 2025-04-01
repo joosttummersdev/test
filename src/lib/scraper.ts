@@ -57,6 +57,15 @@ export async function testScraperCredentials(credentials: TestCredentials) {
     }
 
     console.log('📥 Response received, status:', response.status);
+    
+    // Check content type
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('❌ Invalid response format:', text);
+      throw new Error('Invalid response format from server');
+    }
+
     const data = await response.json();
     console.log('📦 Response data:', data);
     

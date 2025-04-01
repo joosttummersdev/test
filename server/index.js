@@ -86,8 +86,8 @@ app.post('/api/scraper/test', async (req, res) => {
 
       // Clear fields first
       console.log('🧹 Clearing input fields...');
-      await page.$eval('input[name="email"]', (el: any) => el.value = '');
-      await page.$eval('input[name="password"]', (el: any) => el.value = '');
+      await page.$eval('input[name="email"]', el => el.value = '');
+      await page.$eval('input[name="password"]', el => el.value = '');
 
       // Fill login form
       console.log('✍️ Filling login form...');
@@ -158,38 +158,20 @@ app.post('/api/scraper/test', async (req, res) => {
       }
 
       console.log('✅ Login successful');
+      return res.json({ success: true });
 
-      return new Response(
-        JSON.stringify({ success: true }), 
-        { 
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        }
-      );
     } finally {
       if (browser) {
         console.log('🧹 Closing browser...');
         await browser.close();
       }
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('SCRAPER ERROR:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: error.message || 'Unexpected error',
-        details: error.stack
-      }), 
-      { 
-        status: error.message.includes('Login failed') ? 401 : 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      }
-    );
+    return res.status(error.message.includes('Login failed') ? 401 : 500).json({ 
+      error: error.message || 'Unexpected error',
+      details: error.stack
+    });
   }
 });
 

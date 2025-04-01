@@ -31,6 +31,8 @@ app.post('/api/scraper/test', async (req, res) => {
 
   let browser;
   try {
+    console.log('🧭 Launching browser...');
+
     // Launch browser with proper configuration
     browser = await puppeteer.launch({
       args: chromium.args,
@@ -39,117 +41,155 @@ app.post('/api/scraper/test', async (req, res) => {
       ignoreHTTPSErrors: true
     });
 
-    const page = await browser.newPage();
-    
-    // Set longer timeout for navigation
-    await page.setDefaultNavigationTimeout(60000);
-    await page.setDefaultTimeout(60000);
-
-    // Set viewport and user agent
-    await page.setViewport({ width: 1920, height: 1080 });
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
-
-    // Enable request interception
-    await page.setRequestInterception(true);
-    page.on('request', request => {
-      if (['image', 'stylesheet', 'font'].includes(request.resourceType())) {
-        request.abort();
-      } else {
-        request.continue();
-      }
-    });
-
-    // Navigate to login page with retry logic
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        await page.goto('https://app.salesdock.nl/login', {
-          waitUntil: 'domcontentloaded',
-          timeout: 60000
-        });
-        break;
-      } catch (error) {
-        retries--;
-        if (retries === 0) throw error;
-        await page.waitForTimeout(5000); // Wait before retry
-      }
-    }
-
-    // Wait for login form
-    await page.waitForSelector('input[name="email"]', { timeout: 30000 });
-    await page.waitForSelector('input[name="password"]', { timeout: 30000 });
-
-    // Clear fields first
-    await page.$eval('input[name="email"]', (el) => el.value = '');
-    await page.$eval('input[name="password"]', (el) => el.value = '');
-
-    // Fill login form
-    await page.type('input[name="email"]', username);
-    await page.type('input[name="password"]', password);
-
-    // Find and click login button
-    const submitButton = await page.waitForSelector('button[type="submit"]', {
-      timeout: 30000
-    });
-
-    if (!submitButton) {
-      throw new Error('Login button not found');
-    }
-
-    // Click and wait for navigation
-    await Promise.all([
-      page.waitForNavigation({ 
-        waitUntil: 'domcontentloaded',
-        timeout: 60000 
-      }),
-      submitButton.click()
-    ]);
-
-    // Check for successful login
-    const isLoggedIn = await Promise.race([
-      page.waitForSelector('.dashboard-container', { 
-        timeout: 30000,
-        visible: true 
-      }).then(() => {
-        console.log('Found dashboard container');
-        return true;
-      }).catch(() => false),
+    try {
+      console.log('✅ Browser launched successfully');
+      const page = await browser.newPage();
       
-      page.waitForSelector('nav.main-menu', {
-        timeout: 30000,
-        visible: true
-      }).then(() => {
-        console.log('Found navigation menu');
-        return true;
-      }).catch(() => false)
-    ]);
+      // Set longer timeout for navigation
+      await page.setDefaultNavigationTimeout(60000);
+      await page.setDefaultTimeout(60000);
 
-    if (!isLoggedIn) {
-      const errorText = await page.evaluate(() => {
-        const errorElement = document.querySelector('.alert-danger, .error-message');
-        return errorElement ? errorElement.textContent : null;
+      // Set viewport and user agent
+      await page.setViewport({ width: 1920, height: 1080 });
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+
+      // Enable request interception
+      await page.setRequestInterception(true);
+      page.on('request', request => {
+        if (['image', 'stylesheet', 'font'].includes(request.resourceType())) {
+          request.abort();
+        } else {
+          request.continue();
+        }
       });
 
-      if (errorText) {
-        console.log('Found error message:', errorText);
-        throw new Error(`Login failed: ${errorText.trim()}`);
+      // Add delay before navigation
+      console.log('⏳ Adding pre-navigation delay...');
+      await new Promise(r => setTimeout(r, 1000));
+
+      // Navigate to login page
+      console.log('🧭 Navigating to login page...');
+      await page.goto('https://app.salesdock.nl/login', {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000
+      });
+
+      // Add delay after navigation
+      console.log('⏳ Adding post-navigation delay...');
+      await new Promise(r => setTimeout(r, 1000));
+
+      // Wait for login form
+      console.log('📧 Waiting for email field...');
+      await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+      console.log('🔑 Waiting for password field...');
+      await page.waitForSelector('input[name="password"]', { timeout: 30000 });
+
+      // Clear fields first
+      console.log('🧹 Clearing input fields...');
+      await page.$eval('input[name="email"]', (el: any) => el.value = '');
+      await page.$eval('input[name="password"]', (el: any) => el.value = '');
+
+      // Fill login form
+      console.log('✍️ Filling login form...');
+      await page.type('input[name="email"]', username);
+      await page.type('input[name="password"]', password);
+
+      // Add delay before clicking
+      console.log('⏳ Adding pre-click delay...');
+      await new Promise(r => setTimeout(r, 1000));
+
+      // Find and click login button
+      console.log('🔍 Looking for login button...');
+      const submitButton = await page.waitForSelector('button[type="submit"]', {
+        timeout: 30000
+      });
+
+      if (!submitButton) {
+        throw new Error('Login button not found');
       }
 
-      throw new Error('Login failed: Could not verify successful login');
-    }
+      // Click and wait for navigation
+      console.log('🔐 Submitting login form...');
+      await Promise.all([
+        page.waitForNavigation({ 
+          waitUntil: 'domcontentloaded',
+          timeout: 60000 
+        }),
+        submitButton.click()
+      ]);
 
-    console.log('Login successful');
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Test connection error:', error);
-    res.status(error.message.includes('Login failed') ? 401 : 500).json({ 
-      error: error.message,
-      details: error.stack
-    });
-  } finally {
-    if (browser) {
-      await browser.close();
+      // Add delay after navigation
+      console.log('⏳ Adding post-login delay...');
+      await new Promise(r => setTimeout(r, 1000));
+
+      // Check for successful login
+      console.log('🔍 Checking login status...');
+      const isLoggedIn = await Promise.race([
+        page.waitForSelector('.dashboard-container', { 
+          timeout: 30000,
+          visible: true 
+        }).then(() => {
+          console.log('✅ Found dashboard container');
+          return true;
+        }).catch(() => false),
+        
+        page.waitForSelector('nav.main-menu', {
+          timeout: 30000,
+          visible: true
+        }).then(() => {
+          console.log('✅ Found navigation menu');
+          return true;
+        }).catch(() => false)
+      ]);
+
+      if (!isLoggedIn) {
+        console.log('❌ Login verification failed, checking for error message...');
+        const errorText = await page.evaluate(() => {
+          const errorElement = document.querySelector('.alert-danger, .error-message');
+          return errorElement ? errorElement.textContent : null;
+        });
+
+        if (errorText) {
+          console.log('❌ Found error message:', errorText);
+          throw new Error(`Login failed: ${errorText.trim()}`);
+        }
+
+        throw new Error('Login failed: Could not verify successful login');
+      }
+
+      console.log('✅ Login successful');
+
+      return new Response(
+        JSON.stringify({ success: true }), 
+        { 
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        }
+      );
+    } finally {
+      if (browser) {
+        console.log('🧹 Closing browser...');
+        await browser.close();
+      }
     }
+  } catch (error: any) {
+    console.error('SCRAPER ERROR:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || 'Unexpected error',
+        details: error.stack
+      }), 
+      { 
+        status: error.message.includes('Login failed') ? 401 : 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      }
+    );
   }
 });
 

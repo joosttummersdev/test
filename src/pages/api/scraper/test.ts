@@ -32,12 +32,13 @@ export const post: APIRoute = async ({ request }) => {
       body: JSON.stringify({ username, password, type })
     });
 
+    const raw = await response.text();
+
     let data;
     try {
-      data = await response.json();
+      data = JSON.parse(raw);
     } catch (e) {
-      const text = await response.text();
-      throw new Error(`Invalid JSON from scraper: ${text}`);
+      throw new Error(`Invalid JSON from scraper: ${raw}`);
     }
 
     if (!response.ok) {

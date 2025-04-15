@@ -4,6 +4,7 @@ import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import chromium from "@sparticuz/chromium";
 
+// Add stealth plugin
 puppeteer.use(StealthPlugin());
 
 const app = express();
@@ -49,75 +50,138 @@ app.post('/api/scraper/test', async (req, res) => {
 
   let browser;
   try {
-    // Launch browser with detailed error handling
+    console.log('🧭 Launching browser...');
+    
+    // Launch browser with proper error handling
     try {
       const path = await chromium.executablePath();
-      console.log("📍 Chromium path:", path);
+      console.log('📍 Chromium path:', path);
 
       browser = await puppeteer.launch({
         args: chromium.args,
         executablePath: path,
-        headless: "new",
-        ignoreHTTPSErrors: true,
+        headless: 'new',
+        ignoreHTTPSErrors: true
       });
 
-      console.log("✅ Browser launched");
+      console.log('✅ Browser launched successfully');
     } catch (launchErr) {
-      console.error("🔥 Failed to launch browser:", launchErr.message);
-      return res.status(500).json({ error: "Puppeteer launch failed", details: launchErr.message });
+      console.error('🔥 Browser launch failed:', launchErr);
+      return res.status(500).json({
+        error: 'Failed to launch browser',
+        details: launchErr.message
+      });
     }
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
-    
-    // Navigate to login page
-    await page.goto('https://app.salesdock.nl/login', {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
-    });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-    // Fill login form
-    await page.type('input[name="email"]', username);
-    await page.type('input[name="password"]', password);
-
-    // Submit form and wait for navigation
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-      page.click('button[type="submit"]')
-    ]);
-
-    // Check for successful login
-    const isLoggedIn = await page.evaluate(() => {
-      return !!document.querySelector('.dashboard-container, nav.main-menu');
-    });
-
-    if (!isLoggedIn) {
-      const html = await page.content();
-      console.log('💥 Page HTML after login attempt:\n', html);
-
-      const errorText = await page.evaluate(() => {
-        const errorElement = document.querySelector('.alert-danger, .error-message');
-        return errorElement ? errorElement.textContent : null;
+    // Navigate to login page with error handling
+    try {
+      console.log('🌐 Navigating to login page...');
+      await page.goto('https://app.salesdock.nl/login', {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000
       });
-
-      throw new Error(errorText || 'Login failed');
+      console.log('📄 Login page loaded');
+    } catch (navigationErr) {
+      console.error('❌ Navigation failed:', navigationErr);
+      return res.status(500).json({
+        error: 'Failed to load login page',
+        details: navigationErr.message
+      });
     }
 
-    res.json({ success: true, message: 'Login successful' });
+    // Wait for and fill form fields
+    try {
+      await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+      await page.waitForSelector('input[name="password"]', { timeout: 30000 });
+
+      // Clear fields first
+      await page.$eval('input[name="email"]', (el: any) => el.value = '');
+      await page.$eval('input[name="password"]', (el: any) => el.value = '');
+
+      await page.type('input[name="email"]', username);
+      await page.type('input[name="password"]', password);
+    } catch (formErr) {
+      console.error('❌ Form interaction failed:', formErr);
+      return res.status(500).json({
+        error: 'Failed to interact with login form',
+        details: formErr.message
+      });
+    }
+
+    // Submit form and check result
+    try {
+      console.log('🔐 Submitting login form...');
+      await Promise.all([
+        page.waitForNavigation({ 
+          waitUntil: 'domcontentloaded',
+          timeout: 60000 
+        }),
+        page.click('button[type="submit"]')
+      ]);
+
+      const isLoggedIn = await Promise.race([
+        page.waitForSelector('.dashboard-container', { 
+          timeout: 30000,
+          visible: true 
+        }).then(() => {
+          console.log('Found dashboard container');
+          return true;
+        }).catch(() => false),
+        
+        page.waitForSelector('nav.main-menu', {
+          timeout: 30000,
+          visible: true
+        }).then(() => {
+          console.log('Found navigation menu');
+          return true;
+        }).catch(() => false)
+      ]);
+
+      if (!isLoggedIn) {
+        const html = await page.content();
+        console.log('💥 Page HTML after login attempt:\n', html);
+
+        const errorText = await page.evaluate(() => {
+          const errorElement = document.querySelector('.alert-danger, .error-message');
+          return errorElement ? errorElement.textContent : null;
+        });
+
+        if (errorText) {
+          console.log('Found error message:', errorText);
+          throw new Error(`Login failed: ${errorText.trim()}`);
+        }
+
+        throw new Error('Login failed: Could not verify successful login');
+      }
+
+      console.log('✅ Login successful');
+      return res.json({ success: true });
+
+    } catch (loginErr) {
+      console.error('❌ Login failed:', loginErr);
+      return res.status(401).json({
+        error: loginErr.message || 'Login failed',
+        details: loginErr.stack
+      });
+    }
 
   } catch (error) {
-    console.error('Error:', error);
-    res.status(401).json({ 
-      error: error.message || 'Login failed',
+    console.error('SCRAPER ERROR:', error);
+    return res.status(500).json({ 
+      error: error.message || 'Unexpected error',
       details: error.stack
     });
   } finally {
     if (browser) {
       try {
         await browser.close();
-        console.log("🧹 Browser closed successfully");
+        console.log('🧹 Browser closed successfully');
       } catch (closeErr) {
-        console.error("⚠️ Error closing browser:", closeErr.message);
+        console.error('⚠️ Error closing browser:', closeErr);
       }
     }
   }

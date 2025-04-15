@@ -73,6 +73,12 @@ app.post('/api/scraper/test', async (req, res) => {
       });
     }
 
+    // Check if browser was created successfully
+    if (!browser) {
+      console.error("❗ Browser was not created.");
+      return res.status(500).json({ error: "Browser not available after launch attempt" });
+    }
+
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');

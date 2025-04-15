@@ -49,14 +49,23 @@ app.post('/api/scraper/test', async (req, res) => {
 
   let browser;
   try {
-    console.log('Launching browser...');
-    
-    browser = await puppeteer.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: 'new',
-      ignoreHTTPSErrors: true
-    });
+    // Launch browser with detailed error handling
+    try {
+      const path = await chromium.executablePath();
+      console.log("📍 Chromium path:", path);
+
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        executablePath: path,
+        headless: "new",
+        ignoreHTTPSErrors: true,
+      });
+
+      console.log("✅ Browser launched");
+    } catch (launchErr) {
+      console.error("🔥 Failed to launch browser:", launchErr.message);
+      return res.status(500).json({ error: "Puppeteer launch failed", details: launchErr.message });
+    }
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
@@ -104,7 +113,12 @@ app.post('/api/scraper/test', async (req, res) => {
     });
   } finally {
     if (browser) {
-      await browser.close();
+      try {
+        await browser.close();
+        console.log("🧹 Browser closed successfully");
+      } catch (closeErr) {
+        console.error("⚠️ Error closing browser:", closeErr.message);
+      }
     }
   }
 });

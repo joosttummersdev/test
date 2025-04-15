@@ -52,7 +52,6 @@ app.post('/api/scraper/test', async (req, res) => {
   try {
     console.log('🧭 Launching browser...');
     
-    // Launch browser with proper error handling
     try {
       const path = await chromium.executablePath();
       console.log('📍 Chromium path:', path);
@@ -76,14 +75,15 @@ app.post('/api/scraper/test', async (req, res) => {
     // Check if browser was created successfully
     if (!browser) {
       console.error("❗ Browser was not created.");
-      return res.status(500).json({ error: "Browser not available after launch attempt" });
+      return res.status(500).json({ 
+        error: "Browser not available after launch attempt" 
+      });
     }
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-    // Navigate to login page with error handling
     try {
       console.log('🌐 Navigating to login page...');
       await page.goto('https://app.salesdock.nl/login', {
@@ -99,7 +99,6 @@ app.post('/api/scraper/test', async (req, res) => {
       });
     }
 
-    // Wait for and fill form fields
     try {
       await page.waitForSelector('input[name="username"]', { timeout: 30000 });
       await page.waitForSelector('input[name="password"]', { timeout: 30000 });
@@ -118,7 +117,6 @@ app.post('/api/scraper/test', async (req, res) => {
       });
     }
 
-    // Submit form and check result
     try {
       console.log('🔐 Submitting login form...');
       await Promise.all([

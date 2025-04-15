@@ -144,6 +144,9 @@ app.post('/api/scraper/test', async (req, res) => {
 
       if (!isLoggedIn) {
         console.log('❌ Login verification failed, checking for error message...');
+        const html = await page.content();
+        console.log('💥 Page HTML after login attempt:\n', html);
+
         const errorText = await page.evaluate(() => {
           const errorElement = document.querySelector('.alert-danger, .error-message');
           return errorElement ? errorElement.textContent : null;
@@ -166,7 +169,7 @@ app.post('/api/scraper/test', async (req, res) => {
         await browser.close();
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('SCRAPER ERROR:', error);
     return res.status(error.message.includes('Login failed') ? 401 : 500).json({ 
       error: error.message || 'Unexpected error',

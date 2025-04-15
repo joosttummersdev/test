@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/scraper/test",
-      "destination": "/api/scraper/test"
+      "destination": "https://scraper-73dv.onrender.com/.netlify/functions/scraper-test"
     }
   ],
   "headers": [

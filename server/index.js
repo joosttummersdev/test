@@ -92,7 +92,8 @@ app.post('/api/scraper/test', async (req, res) => {
       });
       console.log('📄 Login page loaded');
     } catch (navigationErr) {
-      console.error('❌ Navigation failed:', navigationErr);
+      const html = await page.content().catch(() => 'Could not get page content');
+      console.error('❌ Navigation failed. HTML dump:\n', html.slice(0, 1000));
       return res.status(500).json({
         error: 'Failed to load login page',
         details: navigationErr.message
@@ -103,14 +104,20 @@ app.post('/api/scraper/test', async (req, res) => {
       await page.waitForSelector('input[name="username"]', { timeout: 30000 });
       await page.waitForSelector('input[name="password"]', { timeout: 30000 });
 
-      // Clear fields first
-      await page.$eval('input[name="username"]', el => el.value = '');
-      await page.$eval('input[name="password"]', el => el.value = '');
+      // Clear fields first - with error handling
+      try {
+        await page.$eval('input[name="username"]', el => el.value = '');
+        await page.$eval('input[name="password"]', el => el.value = '');
+      } catch (clearErr) {
+        console.error("❌ Error while clearing fields:", clearErr.message);
+        // Continue anyway since this is not critical
+      }
 
       await page.type('input[name="username"]', username);
       await page.type('input[name="password"]', password);
     } catch (formErr) {
-      console.error('❌ Form interaction failed:', formErr);
+      const html = await page.content().catch(() => 'Could not get page content');
+      console.error('❌ Form interaction failed. HTML dump:\n', html.slice(0, 1000));
       return res.status(500).json({
         error: 'Failed to interact with login form',
         details: formErr.message
@@ -146,13 +153,13 @@ app.post('/api/scraper/test', async (req, res) => {
       ]);
 
       if (!isLoggedIn) {
-        const html = await page.content();
-        console.log('💥 Page HTML after login attempt:\n', html);
+        const html = await page.content().catch(() => 'Could not get page content');
+        console.log('💥 Page HTML after login attempt:\n', html.slice(0, 1000));
 
         const errorText = await page.evaluate(() => {
           const errorElement = document.querySelector('.alert-danger, .error-message');
           return errorElement ? errorElement.textContent : null;
-        });
+        }).catch(() => null);
 
         if (errorText) {
           console.log('Found error message:', errorText);
@@ -166,7 +173,8 @@ app.post('/api/scraper/test', async (req, res) => {
       return res.json({ success: true });
 
     } catch (loginErr) {
-      console.error('❌ Login failed:', loginErr);
+      const html = await page.content().catch(() => 'Could not get page content');
+      console.error('⚠️ Login failed. HTML dump:\n', html.slice(0, 1000));
       return res.status(401).json({
         error: loginErr.message || 'Login failed',
         details: loginErr.stack
@@ -185,7 +193,7 @@ app.post('/api/scraper/test', async (req, res) => {
         await browser.close();
         console.log('🧹 Browser closed successfully');
       } catch (closeErr) {
-        console.error('⚠️ Error closing browser:', closeErr);
+        console.error('⚠️ Error closing browser:', closeErr.message);
       }
     }
   }

@@ -99,8 +99,8 @@ app.post('/api/scraper/test', async (req, res) => {
       await page.waitForSelector('input[name="password"]', { timeout: 30000 });
 
       // Clear fields first
-      await page.$eval('input[name="email"]', (el: any) => el.value = '');
-      await page.$eval('input[name="password"]', (el: any) => el.value = '');
+      await page.$eval('input[name="email"]', el => el.value = '');
+      await page.$eval('input[name="password"]', el => el.value = '');
 
       await page.type('input[name="email"]', username);
       await page.type('input[name="password"]', password);

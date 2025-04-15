@@ -169,7 +169,7 @@ app.post('/api/scraper/test', async (req, res) => {
         await browser.close();
       }
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('SCRAPER ERROR:', error);
     return res.status(error.message.includes('Login failed') ? 401 : 500).json({ 
       error: error.message || 'Unexpected error',

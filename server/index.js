@@ -4,80 +4,119 @@ import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import chromium from "@sparticuz/chromium";
 
-// Puppeteer stealth plugin gebruiken
 puppeteer.use(StealthPlugin());
 
 const app = express();
-app.use(cors());
+
+// Enable CORS
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Parse JSON bodies
 app.use(express.json());
 
-app.get("/", (req, res) => res.json({ message: "Scraper backend is running" }));
+// Log all requests for debugging
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
-app.post("/api/scraper/test", async (req, res) => {
-  const { username, password } = req.body || {};
+// Root endpoint to check if server is running
+app.get('/', (req, res) => {
+  res.json({ message: 'Server is running' });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Test endpoint
+app.get('/api/scraper/test', (req, res) => {
+  console.log('GET /api/scraper/test called');
+  res.json({ success: true, message: 'Scraper API is accessible' });
+});
+
+app.post('/api/scraper/test', async (req, res) => {
+  const { username, password } = req.body;
+
   if (!username || !password) {
-    return res.status(400).json({ error: "Missing username or password" });
+    return res.status(400).json({ error: 'Username and password are required' });
   }
 
   let browser;
   try {
-    console.log("🧭 Launching browser...");
-    const executablePath = await chromium.executablePath();
-    console.log("📍 Executable path:", executablePath);
-
+    console.log('Launching browser...');
+    
     browser = await puppeteer.launch({
       args: chromium.args,
-      executablePath,
-      headless: "new",
-      ignoreHTTPSErrors: true,
+      executablePath: await chromium.executablePath(),
+      headless: 'new',
+      ignoreHTTPSErrors: true
     });
-
-    console.log("✅ Browser launched");
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
-    await page.setUserAgent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36");
+    
+    // Navigate to login page
+    await page.goto('https://app.salesdock.nl/login', {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000
+    });
 
-    console.log("🌐 Navigating to Salesdock login page...");
-    await page.goto("https://app.salesdock.nl/login", { waitUntil: "domcontentloaded", timeout: 60000 });
-    console.log("📄 Page loaded");
-
+    // Fill login form
     await page.type('input[name="email"]', username);
     await page.type('input[name="password"]', password);
 
-    console.log("🔐 Submitting login form...");
+    // Submit form and wait for navigation
     await Promise.all([
-      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 60000 }),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
       page.click('button[type="submit"]')
     ]);
 
-    const isLoggedIn = await page.$(".dashboard-container");
+    // Check for successful login
+    const isLoggedIn = await page.evaluate(() => {
+      return !!document.querySelector('.dashboard-container, nav.main-menu');
+    });
+
     if (!isLoggedIn) {
-      console.log("❌ Login not successful");
       const html = await page.content();
-      console.log("💥 Page HTML after login attempt:\n", html);
-      return res.status(401).json({ error: "Login failed. Incorrect credentials or 2FA required." });
+      console.log('💥 Page HTML after login attempt:\n', html);
+
+      const errorText = await page.evaluate(() => {
+        const errorElement = document.querySelector('.alert-danger, .error-message');
+        return errorElement ? errorElement.textContent : null;
+      });
+
+      throw new Error(errorText || 'Login failed');
     }
 
-    console.log("✅ Logged in!");
-    return res.json({ success: true });
+    res.json({ success: true, message: 'Login successful' });
 
   } catch (error) {
-    console.error("🔥 Scraper crashed:", error);
-    return res.status(500).json({ error: "Internal error in scraper", details: error.message });
+    console.error('Error:', error);
+    res.status(401).json({ 
+      error: error.message || 'Login failed',
+      details: error.stack
+    });
   } finally {
     if (browser) {
-      try {
-        await browser.close();
-        console.log("🧹 Browser closed");
-      } catch (closeErr) {
-        console.warn("⚠️ Failed to close browser:", closeErr.message);
-      }
+      await browser.close();
     }
   }
 });
 
+// Catch-all route
+app.use('*', (req, res) => {
+  console.log(`Received request for: ${req.originalUrl}`);
+  res.status(404).json({ error: `Route not found: ${req.originalUrl}` });
+});
+
+// Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server listening on port ${PORT}`);
+  console.log(`Server running on port ${PORT} at ${new Date().toISOString()}`);
 });

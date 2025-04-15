@@ -101,14 +101,14 @@ app.post('/api/scraper/test', async (req, res) => {
 
     // Wait for and fill form fields
     try {
-      await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+      await page.waitForSelector('input[name="username"]', { timeout: 30000 });
       await page.waitForSelector('input[name="password"]', { timeout: 30000 });
 
       // Clear fields first
-      await page.$eval('input[name="email"]', el => el.value = '');
+      await page.$eval('input[name="username"]', el => el.value = '');
       await page.$eval('input[name="password"]', el => el.value = '');
 
-      await page.type('input[name="email"]', username);
+      await page.type('input[name="username"]', username);
       await page.type('input[name="password"]', password);
     } catch (formErr) {
       console.error('❌ Form interaction failed:', formErr);
